@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""make_fixtures.py — 由 good_report.md 生成所有衍生樣本。
+"""make_fixtures.py — 由手寫基準樣本生成所有衍生樣本。
 
 樣本的價值來自「只壞一個維度」：一個樣本若同時壞了三處，紅燈就無法定位缺陷。
 用手改檔案守不住這個性質，所以每個衍生樣本都由本檔用**一次替換**產生，
 單一維度是被建構出來的，不是靠肉眼維持的。
 
 規則：
-  - 每個樣本 = good_report.md ＋ 恰好一處實質修改（或一組同性質的刪行）
+  - 每個樣本 = 它自己的基準 ＋ 恰好一處實質修改（或一組同性質的刪行）
     ＋ 一行說明本檔壞在哪的註記。self_test.py 會驗這個「≤2 行」上限。
-  - 被替換的原文必須在 good_report.md 中**恰好出現一次**，否則直接中止：
+  - 被替換的原文必須在該基準中**恰好出現一次**，否則直接中止：
     位置模稜兩可的替換，生出來的樣本也是模稜兩可的。
-  - 兩個手寫基準樣本不由本檔生成，也不會被覆寫：
-    good_report.md（完整獵捕）與 good_nosearch_report.md（階 3 降級）。
+  - 手寫基準樣本不由本檔生成，也不會被覆寫：good_report.md（完整獵捕）、
+    good_nosearch_report.md（階 3 降級）、chinese_index_na.md、
+    good_landscape.md（領域地形）、good_inherited_report.md（承接地形的獵捕）。
 
 用法：
     python evals/make_fixtures.py          # 重新生成
@@ -26,6 +27,14 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.join(HERE, "fixtures")
 BASE = os.path.join(FIXTURES, "good_report.md")
+# 第二個基準：領域地形報告。它是**另一種文件形狀**，不是缺口報告的變體，
+# 所以它的衍生樣本從它自己長出來，不從 good_report.md 長。
+LAND_BASE = os.path.join(FIXTURES, "good_landscape.md")
+# 第三個基準：承接地形報告的缺口報告。它是**兩個模式接起來的那一份**——
+# 表頭帶〈地形來源〉、第一節同時有本輪量化的預設、承接未補框的預設、
+# 與承接後補了取樣框的預設。這三種在同一份裡並存才是真實的形狀，
+# 而它們的差別只能靠改一行來釘，所以它得自己當基準，不能是 good_report.md 的變體。
+INHERIT_BASE = os.path.join(FIXTURES, "good_inherited_report.md")
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -214,8 +223,101 @@ FIXTURES_SPEC = [
 ]
 
 
-def load_base():
-    with io.open(BASE, encoding="utf-8") as fh:
+# 領域地形報告的衍生樣本。刻意各自只壞一個「臂」，因為地形規則集的每條規則
+# 都有數個臂，而突變測試削弱的是樣本真的踩到的那一個。
+LAND_FIXTURES_SPEC = [
+    (
+        "landscape_no_disclaimer.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：表頭那一行自我限制宣告被刪掉，"
+        "讀者無從知道這一份不判新穎性。",
+        [("**這份報告不做什麼**：不淘汰任何做法、不判斷新穎性、不宣稱任何做法沒有人做過。"
+          "要新穎性判定請跑缺口獵捕。", "")],
+    ),
+    (
+        "landscape_verdict_word.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：第三節混進一個缺口獵捕才有的判定詞彙，"
+        "地形圖悄悄變成一份沒有付舉證成本的判決。",
+        [("這是政策報告最常見的組合。",
+          "這是政策報告最常見的組合，這個方向已經 CROWDED，不值得再投入。")],
+    ),
+    (
+        "landscape_no_cost.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：F5 只寫了買到什麼，付出什麼被填成佔位符——"
+        "只有一面的描述，是這個模式最容易誤導人的方式。",
+        [("- **付出什麼**：願意交出定位資料的人本身就是特定族群，樣本自選；都市峽谷的定位誤差可達數十公尺，"
+          "公園邊界附近的判定不穩；資料授權與隱私審查的行政成本高於方法本身。",
+          "- **付出什麼**：—")],
+    ),
+    (
+        "landscape_status_asserted.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：F5 的〈狀態〉把趨勢寫成領域事實，"
+        "同一欄沒有掛上「回傳 X 筆」的檢索句型。",
+        [("- **狀態**：活躍｜`gps trajectory green space exposure dwell time` 在 Semantic Scholar "
+          "回傳 143 筆，其中 2023 之後 71 筆",
+          "- **狀態**：活躍（近三年明顯在加速，投稿量逐年上升）")],
+    ),
+    (
+        "landscape_orphan_assumption.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：W3 少收了 F6-a，那條預設在第二節寫下來之後"
+        "就從第六節消失了，接手的缺口獵捕拿不到它。",
+        [("| W3 | 量測到的那個時點或那一段，可以代表更長的期間 | F1-b、F6-a | 2 | 真的必要 |",
+          "| W3 | 量測到的那個時點或那一段，可以代表更長的期間 | F1-b | 1 | 真的必要 |")],
+    ),
+    (
+        "landscape_assertive.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：第三節把「本次檢索沒有回傳」寫成斷言。"
+        "措辭規則在兩種模式都成立，這一份就是釘住它在地形報告裡也有效。",
+        [("成本落在資料授權與倫理審查，通常比方法本身貴。",
+          "成本落在資料授權與倫理審查，通常比方法本身貴；這種疊法沒有人做過。")],
+    ),
+    (
+        "landscape_no_tier.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：表頭的工具階層宣告是佔位符。"
+        "這條規則兩種模式共用，這一份釘住它在地形報告裡也有效。",
+        [("**文獻工具**：lit-review lit_api.py（存在性、撤稿、滾雪球均已機器查核）",
+          "**文獻工具**：待補")],
+    ),
+]
+
+
+# 承接地形報告的缺口報告的衍生樣本。這三個釘的是兩個模式之間那道橋：
+# 承接來的預設在第一節裡**看得見**（不是不存在），未補框者不得長出 G3 候選，
+# 補了框者與本輪量化的預設同標準。
+INHERIT_FIXTURES_SPEC = [
+    (
+        "inherited_unframed_ok.md",
+        "本檔相對 good_inherited_report.md 只改一處，且**應該是綠的**：C02 改成反轉本輪量化的 A1，"
+        "於是承接未補框的 A2 只是躺在第一節裡、沒有餵進任何 G3。這一份釘的是承接進來的預設**不必**"
+        "補取樣框（ASSUM-01 不得罰它），也**不必**在第六節有對應列——它不是這一輪搜出來的，"
+        "逼它附檢索紀錄就是逼報告去寫一次沒跑過的搜尋。",
+        [("- **缺口類型**：G3 預設反轉（反轉 A3）", "- **缺口類型**：G3 預設反轉（反轉 A1）")],
+    ),
+    (
+        "inherited_unframed_as_g3.md",
+        "相對於 good_inherited_report.md，本檔刻意壞掉一處：C02 拿承接未補框的 A2 當 G3 的輸入。"
+        "A2 在第一節裡，只是還沒付檢索成本——訊息要說它是承接未補框，不是說第一節沒有這一條。",
+        [("- **缺口類型**：G3 預設反轉（反轉 A3）", "- **缺口類型**：G3 預設反轉（反轉 A2）")],
+    ),
+    (
+        "inherited_framed_partial.md",
+        "相對於 good_inherited_report.md，本檔刻意壞掉一處：A3 標了〔已補取樣框〕，"
+        "摘要層精讀那一段卻不見了——補框宣稱了就要跟本輪量化的預設同標準。",
+        [("｜摘要層精讀 6 篇（pick 索引 0,1,3,5,8,11），其中 5 篇沿用此預設", "")],
+    ),
+]
+
+
+def derived_bases():
+    """每個衍生樣本是從哪一份基準長出來的。self_test.py 的「單一維度」檢查要用。"""
+    out = dict((name, os.path.basename(BASE)) for name, _n, _e in FIXTURES_SPEC)
+    out["narrative_wrapper.md"] = os.path.basename(BASE)
+    out.update((name, os.path.basename(LAND_BASE)) for name, _n, _e in LAND_FIXTURES_SPEC)
+    out.update((name, os.path.basename(INHERIT_BASE)) for name, _n, _e in INHERIT_FIXTURES_SPEC)
+    return out
+
+
+def load_base(path=BASE):
+    with io.open(path, encoding="utf-8") as fh:
         return fh.read()
 
 
@@ -233,7 +335,7 @@ def build(base, note, edits):
         old, new = edit
         n = text.count(old)
         if n != 1:
-            raise SystemExit("替換片段在 good_report.md 出現 %d 次（需恰好 1 次）：%r" % (n, old[:60]))
+            raise SystemExit("替換片段在基準樣本出現 %d 次（需恰好 1 次）：%r" % (n, old[:60]))
         text = text.replace(old, new)
     if note:
         if text.count(NOTE_ANCHOR) != 1:
@@ -251,6 +353,11 @@ def main():
     base = load_base()
     outputs = [(name, build(base, note, edits)) for name, note, edits in FIXTURES_SPEC]
     outputs.append(("narrative_wrapper.md", build_narrative(base)))
+    land_base = load_base(LAND_BASE)
+    outputs += [(name, build(land_base, note, edits)) for name, note, edits in LAND_FIXTURES_SPEC]
+    inherit_base = load_base(INHERIT_BASE)
+    outputs += [(name, build(inherit_base, note, edits))
+                for name, note, edits in INHERIT_FIXTURES_SPEC]
 
     diffs = []
     for name, text in outputs:
@@ -275,10 +382,13 @@ def main():
         print("✅ %d 個衍生樣本與生成器一致。" % len(outputs))
         return 0
 
-    print("已由 good_report.md 生成 %d 個衍生樣本：" % len(outputs))
+    print("已由 %s／%s／%s 生成 %d 個衍生樣本："
+          % (os.path.basename(BASE), os.path.basename(LAND_BASE),
+             os.path.basename(INHERIT_BASE), len(outputs)))
     for name, _t in outputs:
         print("  %s" % name)
-    print("（good_report.md 與 good_nosearch_report.md 是手寫基準，未被覆寫）")
+    print("（good_report.md、good_nosearch_report.md、chinese_index_na.md、good_landscape.md、"
+          "good_inherited_report.md 是手寫基準，未被覆寫）")
     return 0
 
 

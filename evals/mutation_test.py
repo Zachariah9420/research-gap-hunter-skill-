@@ -55,8 +55,8 @@ MUTATIONS = [
     (
         "STRUCT-02", "no_tool_tier.md",
         "不再檢查〈文獻工具〉的值是不是佔位符",
-        '                    if is_placeholder(val):\n                        self.add("STRUCT-02"',
-        '                    if False:\n                        self.add("STRUCT-02"',
+        '                if is_placeholder(val):\n                    self.add("STRUCT-02"',
+        '                if False:\n                    self.add("STRUCT-02"',
     ),
     (
         "COUNT-01", "count_mismatch.md",
@@ -97,9 +97,21 @@ MUTATIONS = [
         "            if True:\n                continue",
     ),
     (
+        "ASSUM-01", "inherited_framed_partial.md",
+        "把所有承接來的預設都當成未補框，取樣框檢查對它們整段不執行",
+        '            if a["inherited"] and not a["framed"]:',
+        '            if a["inherited"]:',
+    ),
+    (
         "ASSUM-02", "impression_as_g3.md",
         "不再檢查 G3 的輸入是不是印象級預設",
         '                elif a["impression"]:',
+        "                elif False:",
+    ),
+    (
+        "ASSUM-02", "inherited_unframed_as_g3.md",
+        "不再檢查 G3 的輸入是不是承接自地形、尚未補取樣框的預設",
+        '                elif a["inherited"] and not a["framed"]:',
         "                elif False:",
     ),
     (
@@ -174,6 +186,40 @@ MUTATIONS = [
         "        if not self.rep.no_search_declared:\n            return",
         "        if True:\n            return",
     ),
+    # ---- 領域地形報告的五條 ------------------------------------------------
+    # 這幾條規則都有數個臂（例如〈狀態〉同時查詞彙與檢索句型）。突變削弱的是
+    # **樣本真的踩到的那一個臂**，其餘的臂由規則本身保守，不由本檔證明——
+    # 這一點寫在 evals/README.md，不要讓綠燈被讀成「每個臂都被證過」。
+    (
+        "LHEAD-01", "landscape_no_disclaimer.md",
+        "不再檢查表頭有沒有〈這份報告不做什麼〉那一行",
+        "        if disclaimer is None:",
+        "        if False:",
+    ),
+    (
+        "LVOCAB-01", "landscape_verdict_word.md",
+        "新穎性判定詞彙比對到了也不回報",
+        "            token = NOVELTY_TOKEN_RE.search(ln)\n            if token:",
+        "            token = NOVELTY_TOKEN_RE.search(ln)\n            if False:",
+    ),
+    (
+        "LCOST-01", "landscape_no_cost.md",
+        "不再檢查家族有沒有同時寫出買到什麼與付出什麼",
+        "            if offenders:",
+        "            if False:",
+    ),
+    (
+        "LSTAT-01", "landscape_status_asserted.md",
+        "〈狀態〉查出問題也不回報（詞彙、檢索句型、逐字查詢詞三個臂一起關掉）",
+        "            problem = self._status_problem(val)\n            if problem:",
+        "            problem = self._status_problem(val)\n            if False:",
+    ),
+    (
+        "LWALL-01", "landscape_orphan_assumption.md",
+        "不再檢查第二節的預設有沒有落進第六節任何一道牆",
+        "            if aid not in used:",
+        "            if False:",
+    ),
 ]
 
 
@@ -200,7 +246,11 @@ def main():
     with io.open(CHECKER, encoding="utf-8") as fh:
         source = fh.read()
 
-    good = os.path.join(FIXTURES, "good_report.md")
+    # 每個突變體都要對**三份**合規基準重跑：缺口報告、地形報告，以及承接地形的
+    # 缺口報告。少了地形那一份，一個把地形規則整條關掉的突變會看起來人畜無害；
+    # 少了承接那一份，一個只在「有承接標籤時」才踩壞的突變同樣不會被看見。
+    clean = [os.path.join(FIXTURES, n)
+             for n in ("good_report.md", "good_landscape.md", "good_inherited_report.md")]
     tmp = tempfile.mkdtemp(prefix="gaphunter-mut-")
     failures = []
     collateral_notes = []
@@ -248,11 +298,12 @@ def main():
                 print("%-11s %-28s %-8s %s" % (check, fixture, "FAIL", "突變體崩潰"))
                 continue
 
-            # 3) 突變不得讓合規報告變紅——那代表改壞了別的東西
-            good_code, good_ids, _ = run(mutant, good)
-            if good_code != 0:
-                failures.append("%s：突變後 good_report.md 由綠轉紅（%s），突變波及其他規則"
-                                % (check, sorted(good_ids or [])))
+            # 3) 突變不得讓任何一份合規報告變紅——那代表改壞了別的東西
+            for good in clean:
+                good_code, good_ids, _ = run(mutant, good)
+                if good_code != 0:
+                    failures.append("%s：突變後 %s 由綠轉紅（%s），突變波及其他規則"
+                                    % (check, os.path.basename(good), sorted(good_ids or [])))
 
             if check in mut_ids:
                 failures.append(

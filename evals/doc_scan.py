@@ -353,6 +353,23 @@ else:
         DOC_FILES,
     )
 
+# 地形報告的樣板：同樣要和它自己的基準樣本對得上。
+# 這一段的由來與缺口樣板那一段相同——SKILL.md 是散文，區段名稱會漂，
+# 而查核器與樣本是照著寫死的字串走的，漂了不會有任何測試變紅。
+land_tmpl = re.search(r"```\n(# 領域地形報告.*?)```", skill, re.S)
+if not land_tmpl:
+    notes.append("SKILL.md 找不到領域地形報告的樣板區塊，區段名稱無從與 good_landscape.md 比對")
+elif exists("evals/fixtures/good_landscape.md"):
+    want = [s.split("（")[0].strip() for s in re.findall(r"^## (.+)$", land_tmpl.group(1), re.M)]
+    got = [s.split("（")[0].strip()
+           for s in re.findall(r"^## (.+)$", read("evals/fixtures/good_landscape.md"), re.M)]
+    print("    SKILL.md 地形樣板的區段：%d 個（%s）" % (len(want), "／".join(want)))
+    if want != got:
+        fail("SKILL.md 地形樣板的區段名稱與 evals/fixtures/good_landscape.md 不一致：\n"
+             "        樣板：%s\n        樣本：%s" % ("／".join(want), "／".join(got)))
+    else:
+        ok("地形樣板的 %d 個區段名稱與 good_landscape.md 逐字一致" % len(want))
+
 # 樣板的區段名稱必須和 good_report.md 對得上（樣板改了、樣本沒跟上就會被抓到）
 if tmpl_sections and exists("evals/fixtures/good_report.md"):
     want = [s.split("（")[0].strip() for s in tmpl_sections]
@@ -408,6 +425,23 @@ if m:
              % ("、".join(sorted(doc_kills)), "、".join(sorted(fc.KILL_VERDICTS))))
 else:
     notes.append("SKILL.md 找不到「〈判定〉只能是…」的句子，淘汰判定無從比對")
+
+# 6e. 地形報告表頭那一行是**逐字**固定句：查核器與 SKILL.md 只要有一個字不一樣，
+# 照著 SKILL.md 寫的報告就會全部被判 LHEAD-01，而報告是對的、查核器是錯的。
+if fc.LANDSCAPE_DISCLAIMER in skill:
+    ok("〈這份報告不做什麼〉的固定句與 SKILL.md 逐字一致")
+else:
+    fail("format_check.LANDSCAPE_DISCLAIMER 的固定句在 SKILL.md 裡找不到逐字相同的一份——"
+         "照 SKILL.md 寫的地形報告會被 LHEAD-01 全數判違規：\n        %s"
+         % fc.LANDSCAPE_DISCLAIMER)
+
+# 6f. 〈狀態〉的五個合法值，SKILL.md 也要寫得出來
+_missing_status = [v for v in fc.LAND_STATUS_VALUES if v not in skill]
+if _missing_status:
+    fail("format_check 接受的〈狀態〉值 %s 在 SKILL.md 找不到——查核器比規格寬"
+         % "、".join(_missing_status))
+else:
+    ok("〈狀態〉的 %d 個合法值 SKILL.md 都寫過" % len(fc.LAND_STATUS_VALUES))
 
 
 # ==========================================================================

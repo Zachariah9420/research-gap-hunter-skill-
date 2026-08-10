@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""format_check.py — 研究缺口報告的「格式」查核器。
+"""format_check.py — research-gap-hunter 報告的「格式」查核器。
 
 純標準函式庫、不連網、不呼叫任何 LLM。輸入一份 research-gap-hunter 產出的
 報告（.md 或 .txt），輸出違規清單。
+
+兩種報告、兩套規則，型別看第一行的 H1（表頭〈模式〉是第二判別點）：
+  - `# 研究缺口報告：…`  → 候選、判定、淘汰、檢索紀錄那一套（Checker）
+  - `# 領域地形報告：…`  → 家族、成本、狀態、牆那一套（LandscapeChecker）
+地形報告不判新穎性、不淘汰，所以缺口那一套規則多數在它身上沒有對象；
+兩套互不套用。認不出型別時當成缺口報告——新增模式不該讓舊模式悄悄失去查核。
 
 它檢查的是**形式**，不是**真假**：
   - 它能抓到「這個 DONE 沒有指名殺死候選的文獻」；
@@ -59,6 +65,71 @@ PENDING_STATES = {
 
 # 任何「判定／狀態」欄位允許的值（跨區段的聯集，區段限制由 VERDICT-02 負責）
 ALLOWED_VERDICTS = SURVIVOR_VERDICTS | KILL_VERDICTS | PENDING_STATES
+
+
+# --------------------------------------------------------------------------
+# 領域地形報告（landscape）：另一種文件形狀，另一套規則
+#
+# 這一份不判新穎性、不淘汰，所以缺口報告那 21 條裡有 19 條在它身上沒有對象。
+# 反過來，它自己會壞的地方缺口報告沒有——最主要是「悄悄漂移成判決」。
+# 判別型別看第一行的 H1，退而求其次看表頭〈模式〉。
+# --------------------------------------------------------------------------
+
+LANDSCAPE_H1_RE = re.compile(r"^#\s*領域地形報告")
+GAP_H1_RE = re.compile(r"^#\s*研究缺口報告")
+LANDSCAPE_MODE_RE = re.compile(r"^模式\s*[：:]\s*領域地形")
+
+# 表頭那一行是固定句，逐字比對（SKILL.md〈landscape 輸出格式〉）
+LANDSCAPE_DISCLAIMER_LABEL = "這份報告不做什麼"
+LANDSCAPE_DISCLAIMER = (
+    "不淘汰任何做法、不判斷新穎性、不宣稱任何做法沒有人做過。要新穎性判定請跑缺口獵捕。"
+)
+
+# 新穎性判定詞彙：地形報告裡出現任何一個，就是這個模式最主要的失效方式。
+# 詞表**推導自**缺口報告的兩個集合，不另抄一份——獵捕新增判定時這道防線自動跟上。
+# 大小寫敏感：判定值在規格裡一律全大寫，若忽略大小寫，英文標題裡的 open／done
+# 會被誤殺，而那正是「守則寬到沒人理它」的起手式。
+NOVELTY_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9_\-])(%s)(?![A-Za-z0-9_\-])"
+    % "|".join(sorted(SURVIVOR_VERDICTS | KILL_VERDICTS))
+)
+
+# 〈狀態〉只有五個合法值；前四個必須在同一欄掛上檢索句型
+LAND_STATUS_VALUES = ("飽和", "活躍", "新興", "衰退", "涵蓋不足")
+LAND_STATUS_EVIDENCE_RE = re.compile(r"回傳\s*\d+\s*筆")
+
+# 第二節的預設編號 F1-a，與第六節〈來源預設〉欄對帳用
+LAND_ASSUM_ID_RE = re.compile(r"(?<![A-Za-z0-9])[Ff](\d{1,2})-([A-Za-z])(?![A-Za-z0-9])")
+LAND_FAMILY_HEAD_RE = re.compile(r"^[Ff](\d{1,2})\b[\s：:.\-]*(.*)$")
+
+LAND_LABEL_ALIASES = {
+    "oneline": ("一句話",),
+    "buys": ("買到什麼", "買到"),
+    "costs": ("付出什麼", "付出"),
+    "anchors": ("錨定文獻",),
+    "status": ("狀態",),
+    "cannot": ("結構上做不到",),
+    "assumptions": ("默默預設",),
+    "entry": ("進入成本",),
+}
+
+# 一眼表與牆表各用自己的欄位別名：兩張表都有「家族」字樣，共用一份會互相搶欄
+LAND_GLANCE_COLUMNS = {
+    "family": ("家族",),
+    "oneline": ("一句話",),
+    "buys": ("買到",),
+    "costs": ("付出",),
+    "status": ("狀態",),
+    "anchors": ("錨定文獻數", "錨定"),
+}
+LAND_WALL_COLUMNS = {
+    "wall": ("牆",),
+    "sources": ("來源預設",),
+    "famcount": ("家族數",),
+    "nature": ("性質",),
+    "breaking": ("拆的可能性",),
+    "statement": ("這條預設",),
+}
 
 
 # --------------------------------------------------------------------------
@@ -119,6 +190,13 @@ ASSERTIVE_PATTERNS = [
     (r"學界從未", "學界從未"),
     (r"目前不存在", "目前不存在"),
     (r"不存在[^，。；、\s]{0,3}(?:研究|文獻|論文|先例|工作)", "不存在…研究／文獻"),
+    # 同一句話的中文語序常常是反過來的（「相關文獻並不存在」而不是「不存在相關文獻」）。
+    # 少了這一條，只要把主詞挪到前面，同一個斷言就整條穿過去。
+    # 間隔字元排除「存」，否則「不查文獻存不存在」這種**在否定該說法**的寫法會被誤判。
+    (r"(?:研究|文獻|論文|先例|工作)[^，。；、\s存]{0,4}不存在", "…研究／文獻不存在"),
+    # 「尚未／迄今未有人做過」與「尚無相關文獻」是同一個斷言的另外兩種寫法。
+    (r"(?:尚未|迄今未|至今未|還未)有?人(?:做過|研究過|探討過|碰過|處理過)", "尚未有人做過"),
+    (r"(?:尚無|迄今無|至今無)[^，。；、\s]{0,4}(?:研究|文獻|論文|先例)", "尚無…研究／文獻"),
     (r"確定(?:是|為)全新", "確定是全新"),
     (r"可以確定是新的", "可以確定是新的"),
     (r"保證(?:是|為)?新的", "保證是新的"),
@@ -180,9 +258,22 @@ CID_RE = re.compile(r"(?<![A-Za-z0-9])(C\d{1,3})(?![0-9])")
 BLOCK_START_RE = re.compile(r"<!--\s*format-check\s*:\s*report-(?:start|begin)\s*-->", re.I)
 BLOCK_END_RE = re.compile(r"<!--\s*format-check\s*:\s*report-end\s*-->", re.I)
 
-# 第一節的預設行
-ASSUM_LINE_RE = re.compile(r"^\s*[-*+]\s*\*{0,2}預設\s*([A-Za-z]?\d{0,3})\s*\*{0,2}\s*[：:]\s*(.*)$")
+# 第一節的預設行。編號與冒號之間允許一個括號標籤：SKILL.md 第 1 步（甲）承接
+# 地形報告時，來源就寫在那裡（`預設 A1〔承接自地形 W3，支撐家族 F1、F4〕：…`），
+# 而承接是兩個模式唯一的介面。這個括號一旦不被解析，承接來的預設對查核器就是
+# 不存在——既不會被算進去，也不會被檢查，而 G3 指到它時的錯誤訊息會說「第一節
+# 沒有這一條」，把讀者送去找一個不存在的缺漏。
+ASSUM_LINE_RE = re.compile(
+    r"^\s*[-*+]\s*\*{0,2}預設\s*([A-Za-z]?\d{0,3})\s*\*{0,2}"
+    r"(?:\s*[〔【\[]([^〕】\]]*)[〕】\]])?"
+    r"\s*\*{0,2}\s*[：:]\s*(.*)$"
+)
 IMPRESSION_RE = re.compile(r"[〔【\[]\s*印象\s*[，,]\s*未驗證\s*[〕】\]]")
+# 承接自地形報告的兩種標籤。未補取樣框者效力等同〔印象，未驗證〕（不得當 G3 輸入），
+# 補了取樣框者與本輪量化的預設同等看待。兩者都**保留原標籤**：效力相同、來源不同，
+# 讀者要看得出這一條是別份報告帶進來的，所以查核器不得叫報告改寫成〔印象，未驗證〕。
+INHERIT_RE = re.compile(r"承接\s*自\s*地形")
+FRAMED_RE = re.compile(r"已\s*補\s*取樣框")
 AREF_RE = re.compile(r"(?<![A-Za-z0-9])[Aa](\d{1,2})(?![0-9])")
 
 # 量化預設的五個取樣框欄位（缺一不可）
@@ -287,6 +378,10 @@ def apply_report_blocks(text):
 
 class Report(object):
     def __init__(self):
+        self.mode = "gap"               # "gap"（研究缺口報告）或 "landscape"（領域地形報告）
+        self.families = []              # landscape：dict(fid, name, line, fields{key:(lineno,value)})
+        self.glance_rows = []           # landscape：第一節一眼表
+        self.wall_rows = []             # landscape：第六節牆表
         self.lines = []
         self.header_lines = []          # (lineno, text) 到第一個 ## 為止
         self.sections = []              # dict(kind, title, start, end)
@@ -323,8 +418,46 @@ def classify_section(title):
     return "other"
 
 
-def parse_table(lines, start, end):
+def classify_landscape_section(title):
+    """地形報告的六個區段。與 classify_section 分開，因為兩份文件的節名沒有交集。"""
+    t = norm_key(title)
+    if "牆" in t or "默默預設" in t:
+        return "walls"
+    if "一眼" in t:
+        return "glance"
+    if "家族" in t:
+        return "families"
+    if "檢索紀錄" in t or "檢索記錄" in t or "搜尋紀錄" in t:
+        return "trace"
+    if "疊" in t:
+        return "stack"
+    if "能量" in t:
+        return "energy"
+    return "other"
+
+
+def detect_mode(lines, first_h2):
+    """判別這是哪一種報告。第一行的 H1 是主判別點，表頭〈模式〉是第二個。
+
+    兩者都認不出來時回 "gap"：缺口報告是這支查核器原本唯一的對象，
+    保守回退才不會讓既有報告因為新增了一個模式而突然不受查核。
+    """
+    head = lines[:first_h2] if first_h2 > 0 else lines
+    for ln in head:
+        s = strip_md(ln)
+        if LANDSCAPE_H1_RE.match(s):
+            return "landscape"
+        if GAP_H1_RE.match(s):
+            return "gap"
+        if LANDSCAPE_MODE_RE.match(s):
+            return "landscape"
+    return "gap"
+
+
+def parse_table(lines, start, end, aliases=None):
     """把某區段裡的第一張 markdown 表格解析成 (columns, rows)。"""
+    if aliases is None:
+        aliases = COLUMN_ALIASES
     rows = []
     header = None
     for i in range(start, end):
@@ -347,10 +480,10 @@ def parse_table(lines, start, end):
     colmap = {}
     for idx, name in enumerate(header):
         key = norm_key(name)
-        for canon, aliases in COLUMN_ALIASES.items():
+        for canon, names in aliases.items():
             if canon in colmap:
                 continue
-            for a in aliases:
+            for a in names:
                 if norm_key(a) and norm_key(a) in key:
                     colmap[canon] = idx
                     break
@@ -364,19 +497,27 @@ def parse_table(lines, start, end):
 
 
 def parse_assumption(lineno, raw):
-    """把第一節的一條「預設」行拆成編號、是否印象級、五個取樣框數字。"""
+    """把第一節的一條「預設」行拆成編號、來源標籤、是否印象級、五個取樣框數字。"""
     m = ASSUM_LINE_RE.match(raw)
     if not m:
         return None
     aid = m.group(1).strip().upper()
     if aid and aid[0].isdigit():
         aid = "A" + aid
-    body = m.group(2)
+    label = m.group(2) or ""
+    body = m.group(3)
+    inherited = bool(INHERIT_RE.search(label))
     rec = {
         "aid": aid or None,
         "line": lineno,
         "text": raw,
-        "impression": bool(IMPRESSION_RE.search(raw)),
+        "label": label.strip(),
+        "inherited": inherited,
+        "framed": inherited and bool(FRAMED_RE.search(label)),
+        # 承接的預設**按標籤分類，不按內文措辭**。SKILL.md 的寫法會在句尾補一句
+        # 「效力同〔印象，未驗證〕」；那是說明，不是這一條的來源。照字面歸成印象級，
+        # 訊息就會把承接來的預設講成本輪憑印象寫的，來源當場消失。
+        "impression": bool(IMPRESSION_RE.search(raw)) and not inherited,
         "missing": [],
         "numbers": {},
     }
@@ -387,6 +528,57 @@ def parse_assumption(lineno, raw):
         elif key:
             rec["numbers"][key] = int(mm.group(1))
     return rec
+
+
+def parse_fields(lines, start, end, aliases):
+    """把 `- **標籤**：值` 這種欄位行收成 {canon: (lineno, value)}。"""
+    fields = {}
+    for j in range(start, end):
+        fm = re.match(r"^\s*[-*+]\s*\*{0,2}([^*：:]+?)\*{0,2}\s*[：:]\s*(.*)$", lines[j])
+        if not fm:
+            continue
+        label = norm_key(fm.group(1))
+        value = fm.group(2).strip()
+        for canon, names in aliases.items():
+            if canon in fields:
+                continue
+            if any(norm_key(a) in label for a in names):
+                fields[canon] = (j + 1, value)
+                break
+    return fields
+
+
+def parse_landscape(rep, heads):
+    """地形報告：家族區塊（### F1 …）、一眼表、牆表。
+
+    家族靠 `### F<n>` 認，不靠它落在哪一節——節名一旦被改寫，
+    整份報告就會變成「沒有家族因此沒有違規」，那是最壞的一種綠燈。
+    """
+    lines = rep.lines
+    fam_heads = []
+    for i, lvl, t in heads:
+        if lvl != 3:
+            continue
+        m = LAND_FAMILY_HEAD_RE.match(strip_md(t))
+        if m:
+            fam_heads.append((i, "F" + m.group(1), m.group(2).strip()))
+    for n, (i, fid, name) in enumerate(fam_heads):
+        end = fam_heads[n + 1][0] if n + 1 < len(fam_heads) else len(lines)
+        nxt_h2 = next((s["start"] for s in rep.sections if s["start"] > i), len(lines))
+        end = min(end, nxt_h2)
+        rep.families.append(
+            {"fid": fid, "name": name, "line": i + 1,
+             "fields": parse_fields(lines, i + 1, end, LAND_LABEL_ALIASES)}
+        )
+
+    for s in rep.sections:
+        if s["kind"] == "glance":
+            _h, rows = parse_table(lines, s["start"], s["end"], LAND_GLANCE_COLUMNS)
+            rep.glance_rows.extend(rows)
+        elif s["kind"] == "walls":
+            _h, rows = parse_table(lines, s["start"], s["end"], LAND_WALL_COLUMNS)
+            rep.wall_rows.extend(rows)
+    return rep
 
 
 def parse_report(text):
@@ -403,11 +595,17 @@ def parse_report(text):
 
     first_h2 = next((i for i, lvl, _ in heads if lvl == 2), len(lines))
     rep.header_lines = [(i + 1, lines[i]) for i in range(0, first_h2)]
+    rep.mode = detect_mode(lines, first_h2)
+    classify = classify_landscape_section if rep.mode == "landscape" else classify_section
 
     h2s = [(i, t) for i, lvl, t in heads if lvl == 2]
     for n, (i, t) in enumerate(h2s):
         end = h2s[n + 1][0] if n + 1 < len(h2s) else len(lines)
-        rep.sections.append({"kind": classify_section(t), "title": t, "start": i, "end": end, "line": i + 1})
+        rep.sections.append({"kind": classify(t), "title": t, "start": i, "end": end, "line": i + 1})
+
+    if rep.mode == "landscape":
+        parse_landscape(rep, heads)
+        return rep
 
     # 生成 N → 存活 M（第二節標題）
     for i, ln in enumerate(lines):
@@ -498,8 +696,9 @@ CHECK_DESCRIPTIONS = {
     "RECON-01": "候選結算必須對得起來：生成 N ＝ 存活 M ＋ 待確認 P ＋ 已淘汰 Q，且每個候選編號只出現一次",
     "VERDICT-01": "判定／暫定狀態必須是該區段允許的值",
     "VERDICT-02": "存活候選只能是 ADJACENT／OPEN／INCREMENTAL",
-    "ASSUM-01": "量化預設必須帶完整取樣框（N／檢索詞／limit／M′／pick／M／推翻性檢索／K′／K／樣本來源）",
-    "ASSUM-02": "標〔印象，未驗證〕的預設不得成為 G3 候選的輸入",
+    "ASSUM-01": "量化預設必須帶完整取樣框（N／檢索詞／limit／M′／pick／M／推翻性檢索／K′／K／樣本來源）；"
+                "〔承接自地形 W…〕未補框者免（它不是這一輪抽樣出來的），標了〔已補取樣框〕就同標準",
+    "ASSUM-02": "標〔印象，未驗證〕、或〔承接自地形 W…〕尚未補取樣框的預設，不得成為 G3 候選的輸入",
     "EVID-01": "每個存活候選都要有搜尋證據欄",
     "EVID-02": "搜尋證據欄不得為空或佔位符",
     "EVID-03": "搜尋證據欄必須含至少一個具體查詢詞",
@@ -513,10 +712,18 @@ CHECK_DESCRIPTIONS = {
     "TRACE-02": "〈檢索紀錄〉的查詢詞不得為佔位符",
     "LANG-01": "不得斷言「不存在／沒有人做過」，只能寫「這次搜尋沒有回傳」",
     "TIER-01": "宣告未執行檢索時不得填寫任何新穎性判定或淘汰判定",
+    # ---- 以下五條只作用在領域地形報告（landscape）------------------------
+    "LHEAD-01": "地形報告的表頭要宣告〈模式〉是領域地形，並逐字帶〈這份報告不做什麼〉那一行",
+    "LVOCAB-01": "地形報告不得出現新穎性判定詞彙（ADJACENT／OPEN／INCREMENTAL／DONE／CROWDED）",
+    "LCOST-01": "每個家族都要同時寫出〈買到什麼〉與〈付出什麼〉，查不到就寫「還沒查到」，不得留白或佔位符",
+    "LSTAT-01": "〈狀態〉必須是五個合法值之一；不是〔涵蓋不足〕就要在同一欄掛上檢索句型",
+    "LWALL-01": "第六節的牆與第二節的〈默默預設〉要雙向對得起來，〈家族數〉等於去重後的家族數",
 }
 
 
-class Checker(object):
+class BaseChecker(object):
+    """兩種報告共用的東西：findings 的收集、以及跨模式都成立的規則。"""
+
     def __init__(self, rep, path):
         self.rep = rep
         self.path = path
@@ -533,6 +740,38 @@ class Checker(object):
             }
         )
 
+    # ---- 表頭的文獻工具階層（兩種報告都要宣告）-----------------------------
+    def check_tool_tier(self):
+        header_text = "\n".join(t for _, t in self.rep.header_lines)
+        if not re.search(r"文獻工具", header_text):
+            self.add("STRUCT-02", 1, "", "表頭缺少「**文獻工具**：…」宣告，無法判斷這份報告的查核階層")
+            return
+        for lineno, t in self.rep.header_lines:
+            if "文獻工具" in t:
+                val = t.split("：", 1)[-1] if "：" in t else t.split(":", 1)[-1]
+                if is_placeholder(val):
+                    self.add("STRUCT-02", lineno, t, "「文獻工具」宣告是空的或佔位符")
+                break
+
+    # ---- 措辭（兩種報告都適用）--------------------------------------------
+    def lang_exempt(self, line):
+        """規格要求這個模式逐字寫出、因此不受 LANG-01 管的整行。預設一行都沒有。"""
+        return False
+
+    def check_language(self):
+        for i, ln in enumerate(self.rep.lines):
+            if ASSERTIVE_GUARD.search(ln):
+                continue
+            if self.lang_exempt(ln):
+                continue
+            for pat, label in ASSERTIVE_PATTERNS:
+                m = re.search(pat, ln)
+                if m:
+                    self.add("LANG-01", i + 1, ln,
+                             "斷言式措辭「%s」：搜不到是搜尋結果，不存在是斷言，報告只能寫前者" % m.group(0))
+
+
+class Checker(BaseChecker):
     # ---- 結構 -----------------------------------------------------------
     def check_structure(self):
         kinds = set(s["kind"] for s in self.rep.sections)
@@ -542,17 +781,7 @@ class Checker(object):
                 # 缺整個區段是「全檔級」缺陷，沒有肇事行；錨在第 1 行，
                 # 讓每一筆 finding 都有可定位的行號（下游工具靠這個跳轉）。
                 self.add("STRUCT-01", 1, "", "找不到〈%s〉區段（以 `## ` 標題辨識）" % label)
-
-        header_text = "\n".join(t for _, t in self.rep.header_lines)
-        if not re.search(r"文獻工具", header_text):
-            self.add("STRUCT-02", 1, "", "表頭缺少「**文獻工具**：…」宣告，無法判斷這份報告的查核階層")
-        else:
-            for lineno, t in self.rep.header_lines:
-                if "文獻工具" in t:
-                    val = t.split("：", 1)[-1] if "：" in t else t.split(":", 1)[-1]
-                    if is_placeholder(val):
-                        self.add("STRUCT-02", lineno, t, "「文獻工具」宣告是空的或佔位符")
-                    break
+        self.check_tool_tier()
 
     # ---- 數量 -----------------------------------------------------------
     def check_counts(self):
@@ -649,24 +878,43 @@ class Checker(object):
                      "結算寫已淘汰 %d，第四節實際有 %d 列" % (q, len(rep.kill_rows)))
 
     # ---- 第一節的預設 ----------------------------------------------------
+    @staticmethod
+    def _frame_advice(a, problem):
+        """取樣框不完整時該怎麼辦——本輪自己盤的與承接來的，退路不一樣。
+
+        自己盤的退回〔印象，未驗證〕；承接來的退回〔承接自地形 W…〕，**不是**
+        〔印象，未驗證〕。兩者效力相同（都不得當 G3 輸入），但把承接的標籤改寫掉，
+        讀者就再也看不出這一條是別份報告帶進來的，而那正是〈地形來源〉那一行要交代的事。
+        """
+        if a["inherited"]:
+            return ("%s。這一條標了〔已補取樣框〕，就要與本輪量化的預設同標準：五個數字補齊，"
+                    "或把標籤改回〔承接自地形 W…〕退回未補框（效力同〔印象，未驗證〕、不得作為 G3 輸入）"
+                    "——不要改寫成〔印象，未驗證〕，來源要留給讀者看得見" % problem)
+        return "量化預設的%s；未量化的預設一律標〔印象，未驗證〕" % problem
+
     def check_assumptions(self):
         for a in self.rep.assumptions:
             raw = self.rep.lines[a["line"] - 1]
             if not a["aid"]:
                 self.add("ASSUM-01", a["line"], raw,
                          "預設沒有編號（應寫成「預設 A1：…」）——第 3 步的 G3 與第六節的推翻性檢索都靠它對帳")
+            if a["inherited"] and not a["framed"]:
+                # 承接自地形報告、尚未補取樣框。地形模式在定義上就沒有跑過
+                # N／M′／M／K′／K（它的錨定文獻是代表性的，不是抽樣的），
+                # 要求它補一個取樣框，等於逼報告去編一組沒跑過的數字。
+                # 它的效力等同〔印象，未驗證〕，而那個效力由 ASSUM-02 落實在
+                # 「不得當 G3 輸入」上——不是在這裡罰它沒有取樣框。
+                continue
             if a["impression"]:
                 continue  # 印象級預設本來就不必量化，但也不得當 G3 輸入（ASSUM-02）
             if a["missing"]:
                 self.add("ASSUM-01", a["line"], raw,
-                         "量化預設缺少取樣框欄位：%s；未量化的預設一律標〔印象，未驗證〕"
-                         % "、".join(a["missing"]))
+                         self._frame_advice(a, "取樣框缺少欄位：%s" % "、".join(a["missing"])))
                 continue
             num = a["numbers"]
             if num.get("Mp", 0) < 3:
                 self.add("ASSUM-01", a["line"], raw,
-                         "摘要層精讀只有 %d 篇（M′ < 3），依規定要標〔印象，未驗證〕而不是量化預設"
-                         % num.get("Mp", 0))
+                         self._frame_advice(a, "摘要層精讀只有 %d 篇（M′ < 3）" % num.get("Mp", 0)))
             if num.get("M", 0) > num.get("Mp", 0):
                 self.add("ASSUM-01", a["line"], raw,
                          "沿用篇數 M=%d 大於摘要層精讀 M′=%d——沿用只能在讀過摘要的樣本裡數"
@@ -697,6 +945,16 @@ class Checker(object):
                 if a is None:
                     self.add("ASSUM-02", lineno, raw,
                              "G3 候選指到第一節沒有的預設 %s" % ref)
+                elif a["inherited"] and not a["framed"]:
+                    # 這一條**在**第一節裡，只是還沒付檢索成本。訊息一定要講清楚是哪一種：
+                    # 說它「不存在」會把讀者送去找一個不存在的缺漏，而真正的動作
+                    # 是對這一條（只有這一條）補跑取樣框。
+                    self.add("ASSUM-02", lineno, raw,
+                             "G3 候選的輸入 %s 是〔承接自地形 W…〕、尚未補取樣框（見第 %d 行）"
+                             "——它在第一節裡，但地形模式沒有跑過 N／M′／M／K′／K，效力等同"
+                             "〔印象，未驗證〕，不得長出候選。要反轉它就只對這一條補跑取樣框，"
+                             "補完標成〔承接自地形 W…，已補取樣框〕再進 G3"
+                             % (ref, a["line"]))
                 elif a["impression"]:
                     self.add("ASSUM-02", lineno, raw,
                              "G3 候選的輸入 %s 標了〔印象，未驗證〕——印象級預設不得長出候選（見第 %d 行）"
@@ -911,17 +1169,6 @@ class Checker(object):
                 self.add("TRACE-02", r["_line"], self.rep.lines[r["_line"] - 1],
                          "檢索紀錄的查詢詞欄不是具體查詢詞（「%s」）" % strip_md(q))
 
-    # ---- 措辭 ------------------------------------------------------------
-    def check_language(self):
-        for i, ln in enumerate(self.rep.lines):
-            if ASSERTIVE_GUARD.search(ln):
-                continue
-            for pat, label in ASSERTIVE_PATTERNS:
-                m = re.search(pat, ln)
-                if m:
-                    self.add("LANG-01", i + 1, ln,
-                             "斷言式措辭「%s」：搜不到是搜尋結果，不存在是斷言，報告只能寫前者" % m.group(0))
-
     # ---- 階層一致性 ------------------------------------------------------
     def check_tier(self):
         if not self.rep.no_search_declared:
@@ -955,6 +1202,206 @@ class Checker(object):
         return self.findings
 
 
+class LandscapeChecker(BaseChecker):
+    """領域地形報告的規則集——**刻意只有五條**，外加兩條跨模式共用的。
+
+    為什麼這麼薄：這個模式存在的理由，就是缺口獵捕的舉證門檻對「我只想先知道
+    自己在哪裡」太重（一次實測裡有一半的候選最後只能寫〔待確認〕）。在這裡把規則
+    疊回去，等於把那個門檻原封不動搬過來，於是又回到同一個結局。
+
+    所以這五條各自對應一種「照著格式寫、但已經在騙人」的方式，其餘一律不查：
+    漂移成判決（LVOCAB-01）、只講好處不講代價（LCOST-01）、把趨勢寫成領域事實
+    而不是檢索結果（LSTAT-01）、牆與預設對不起來（LWALL-01）、以及報告自己不肯
+    宣告它是什麼（LHEAD-01）。哪些沒查、為什麼沒查，寫在 evals/README.md。
+    """
+
+    def lang_exempt(self, line):
+        """〈這份報告不做什麼〉那一行逐字含有「沒有人做過」，是規格要求的固定句。
+
+        豁免窄到只認那一整句：必須是那個欄位、而且欄位值**恰好**等於固定句。
+        在後面續寫任何一個字，這一行就回到 LANG-01 管轄——否則這條豁免會變成
+        「把斷言接在免死金牌後面」的通道。
+        """
+        s = strip_md(line)
+        if LANDSCAPE_DISCLAIMER_LABEL not in s:
+            return False
+        return s.split("：", 1)[-1].strip() == LANDSCAPE_DISCLAIMER
+
+    # ---- 表頭：報告要自己講出它是什麼、不做什麼 ---------------------------
+    def check_header(self):
+        mode_declared = False
+        disclaimer = None
+        for lineno, t in self.rep.header_lines:
+            s = strip_md(t)
+            if LANDSCAPE_MODE_RE.match(s):
+                mode_declared = True
+            if LANDSCAPE_DISCLAIMER_LABEL in s and disclaimer is None:
+                disclaimer = (lineno, t, s)
+        if not mode_declared:
+            self.add("LHEAD-01", 1, "",
+                     "表頭缺少「**模式**：領域地形…」那一行——讀者無從知道這一份不是新穎性判定")
+        if disclaimer is None:
+            self.add("LHEAD-01", 1, "",
+                     "表頭缺少〈這份報告不做什麼〉那一行；這是這個模式唯一的自我限制宣告，"
+                     "逐字寫：%s" % LANDSCAPE_DISCLAIMER)
+        if disclaimer is not None and disclaimer[2].split("：", 1)[-1].strip() != LANDSCAPE_DISCLAIMER:
+            self.add("LHEAD-01", disclaimer[0], disclaimer[1],
+                     "〈這份報告不做什麼〉不是逐字的固定句（多一字少一字都算）。應為：%s"
+                     % LANDSCAPE_DISCLAIMER)
+
+    # ---- 模式混淆：地形報告裡不得有新穎性判定詞彙 -------------------------
+    def check_mode_vocabulary(self):
+        for i, ln in enumerate(self.rep.lines):
+            token = NOVELTY_TOKEN_RE.search(ln)
+            if token:
+                self.add("LVOCAB-01", i + 1, ln,
+                         "地形報告出現新穎性判定詞彙「%s」。這個模式不淘汰、不判新穎性，"
+                         "寫得出判定就表示它已經在下一個它沒有付舉證成本的判決；"
+                         "要判定請跑缺口獵捕，那邊每個判定都要附檢索紀錄" % token.group(1))
+
+    # ---- 兩面都要寫：只有買到、沒有付出，就是描述不誠實 -------------------
+    def check_cost(self):
+        for fam in self.rep.families:
+            head = "### %s %s" % (fam["fid"], fam["name"])
+            offenders = []
+            for key, label in (("buys", "買到什麼"), ("costs", "付出什麼")):
+                if key not in fam["fields"]:
+                    offenders.append((fam["line"], head, label, "整欄不見了"))
+                elif is_placeholder(fam["fields"][key][1]):
+                    offenders.append((fam["fields"][key][0],
+                                      self.rep.lines[fam["fields"][key][0] - 1], label,
+                                      "是空的或佔位符（「%s」）" % strip_md(fam["fields"][key][1])))
+            if offenders:
+                lineno, raw, label, why = offenders[0]
+                self.add("LCOST-01", lineno, raw,
+                         "家族 %s 的〈%s〉%s。一個做法如果真的沒有代價，它早就把其他家族清光了；"
+                         "查不到就逐字寫「還沒查到」，不要留白讓讀者以為它免費" % (fam["fid"], label, why))
+        for row in self.rep.glance_rows:
+            blank = [label for key, label in (("buys", "買到什麼"), ("costs", "付出什麼"))
+                     if is_placeholder(row.get(key, ""))]
+            if blank:
+                self.add("LCOST-01", row["_line"], self.rep.lines[row["_line"] - 1],
+                         "一眼表這一列的〈%s〉是空的或佔位符——兩邊都要寫得出來才算描述完一個家族"
+                         % "〉〈".join(blank))
+
+    # ---- 狀態：飽和／活躍是檢索結果，不是領域事實 -------------------------
+    def _status_problem(self, value):
+        v = strip_md(value or "")
+        v = re.split(r"[｜|]", v)[0]
+        v = v.strip("〔〕【】[]（）() 　").strip()
+        if not v:
+            return "〈狀態〉是空的"
+        if v not in LAND_STATUS_VALUES:
+            return ("〈狀態〉值「%s」不在五個合法值內（%s）"
+                    % (v, "／".join(LAND_STATUS_VALUES)))
+        if v == "涵蓋不足":
+            return None      # 誠實的退場：標了就走，不必附證據
+        if not LAND_STATUS_EVIDENCE_RE.search(strip_md(value)):
+            return ("〈狀態〉「%s」沒有掛檢索句型——同一欄要寫「`<查詢詞>` 在 <索引> 回傳 X 筆，"
+                    "其中 <年份> 之後 Y 筆」。判不出來就寫〔涵蓋不足〕，那是這個模式允許的答案" % v)
+        if not (BACKTICK_RE.search(value) or QUOTED_ANY_RE.search(value)):
+            return ("〈狀態〉「%s」有筆數卻沒有逐字查詢詞——讀者要能把那個詞複製去重跑一次" % v)
+        return None
+
+    def check_status(self):
+        for fam in self.rep.families:
+            if "status" not in fam["fields"]:
+                self.add("LSTAT-01", fam["line"], "### %s %s" % (fam["fid"], fam["name"]),
+                         "家族 %s 缺〈狀態〉欄" % fam["fid"])
+                continue
+            lineno, val = fam["fields"]["status"]
+            problem = self._status_problem(val)
+            if problem:
+                self.add("LSTAT-01", lineno, self.rep.lines[lineno - 1],
+                         "家族 %s 的%s" % (fam["fid"], problem))
+        for row in self.rep.glance_rows:
+            cell = row.get("status", "")
+            if not strip_md(cell):
+                continue
+            gv = strip_md(cell).strip("〔〕【】[]（）() 　").strip()
+            if gv not in LAND_STATUS_VALUES:
+                self.add("LSTAT-01", row["_line"], self.rep.lines[row["_line"] - 1],
+                         "一眼表的〈狀態〉「%s」不在五個合法值內（%s）"
+                         % (gv, "／".join(LAND_STATUS_VALUES)))
+
+    # ---- 牆與預設的雙向對帳（這一節是要交棒給獵捕的，對不起來就交不出去）----
+    def check_walls(self):
+        declared = []
+        for fam in self.rep.families:
+            if "assumptions" not in fam["fields"]:
+                self.add("LWALL-01", fam["line"], "### %s %s" % (fam["fid"], fam["name"]),
+                         "家族 %s 沒有〈默默預設〉欄；第六節的牆只能從這一欄長出來，"
+                         "缺了它，這份地形圖最後一節就沒有原料" % fam["fid"])
+                continue
+            lineno, val = fam["fields"]["assumptions"]
+            ids = ["F%s-%s" % (m.group(1), m.group(2).lower())
+                   for m in LAND_ASSUM_ID_RE.finditer(val)]
+            if not ids:
+                self.add("LWALL-01", lineno, self.rep.lines[lineno - 1],
+                         "家族 %s 的〈默默預設〉沒有可對帳的編號，要寫成「F<n>-a〈…〉；F<n>-b〈…〉」"
+                         % fam["fid"])
+            for aid in ids:
+                declared.append((aid, fam["fid"], lineno))
+
+        if not self.rep.wall_rows:
+            if declared:
+                line = next((s["line"] for s in self.rep.sections if s["kind"] == "walls"), 1)
+                self.add("LWALL-01", line, "",
+                         "找不到第六節的牆表（欄位：牆｜這條預設｜來源預設｜家族數｜性質｜拆的可能性），"
+                         "第二節的 %d 條預設全部沒有歸屬——那一節正是要交給缺口獵捕的東西"
+                         % len(declared))
+            return
+
+        known = set(a for a, _f, _l in declared)
+        used = {}
+        for row in self.rep.wall_rows:
+            lineno = row["_line"]
+            raw = self.rep.lines[lineno - 1]
+            wall = strip_md(row.get("wall", "")) or "（無編號）"
+            ids = ["F%s-%s" % (m.group(1), m.group(2).lower())
+                   for m in LAND_ASSUM_ID_RE.finditer(row.get("sources", ""))]
+            if not ids:
+                self.add("LWALL-01", lineno, raw,
+                         "牆 %s 的〈來源預設〉沒有任何預設編號（F<n>-<字母>）。"
+                         "牆只能從第二節已經寫下來的預設長出來，不能直接想" % wall)
+                continue
+            unknown = sorted(set(a for a in ids if a not in known))
+            if unknown:
+                self.add("LWALL-01", lineno, raw,
+                         "牆 %s 的〈來源預設〉指到第二節沒有的預設：%s"
+                         % (wall, "、".join(unknown)))
+            for aid in ids:
+                if aid in used and used[aid] != wall:
+                    self.add("LWALL-01", lineno, raw,
+                             "預設 %s 同時掛在牆 %s 與牆 %s 底下；每條預設只歸一道牆，"
+                             "否則〈家族數〉會把同一票算兩次" % (aid, used[aid], wall))
+                used.setdefault(aid, wall)
+            got = re.search(r"\d+", strip_md(row.get("famcount", "")))
+            distinct = len(set(a.split("-")[0] for a in ids))
+            if got is not None and int(got.group(0)) != distinct:
+                self.add("LWALL-01", lineno, raw,
+                         "牆 %s 的〈家族數〉寫 %s，〈來源預設〉去重後是 %d 個家族。"
+                         "這一欄決定整張表的排序，數錯就等於把牆排錯"
+                         % (wall, got.group(0), distinct))
+
+        for aid, fid, lineno in declared:
+            if aid not in used:
+                self.add("LWALL-01", lineno, self.rep.lines[lineno - 1],
+                         "第二節的預設 %s（家族 %s）沒有出現在第六節任何一道牆的〈來源預設〉欄——"
+                         "它被寫下來然後不見了，接手的缺口獵捕拿不到它" % (aid, fid))
+
+    def run(self):
+        self.check_header()
+        self.check_tool_tier()
+        self.check_mode_vocabulary()
+        self.check_cost()
+        self.check_status()
+        self.check_walls()
+        self.check_language()
+        self.findings.sort(key=lambda f: (f["line"], f["check"]))
+        return self.findings
+
+
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
@@ -982,14 +1429,19 @@ def main(argv=None):
         return 2
 
     rep = parse_report(text)
-    findings = Checker(rep, path).run()
+    checker = LandscapeChecker if rep.mode == "landscape" else Checker
+    findings = checker(rep, path).run()
 
     if args.as_json:
         print(json.dumps(
             {
                 "report": os.path.abspath(path),
                 "ok": not findings,
+                "mode": rep.mode,
                 "report_blocks": rep.report_blocks,
+                "families": len(rep.families),
+                "glance_rows": len(rep.glance_rows),
+                "wall_rows": len(rep.wall_rows),
                 "candidate_sections": len(rep.candidates),
                 "declared_generated": rep.declared_generated,
                 "declared_survived": rep.declared_survived,
@@ -1009,8 +1461,13 @@ def main(argv=None):
     print("格式查核：%s" % os.path.basename(path))
     if rep.report_blocks:
         print("  （敘事型文件：只查 %d 個 report-start／report-end 區塊之內的內容）" % rep.report_blocks)
-    print("  候選區塊 %d ／ 待確認列 %d ／ 淘汰列 %d ／ 檢索紀錄列 %d"
-          % (len(rep.candidates), len(rep.pending_rows), len(rep.kill_rows), len(rep.trace_rows)))
+    if rep.mode == "landscape":
+        print("  報告型別：領域地形（規則集刻意薄，見 evals/README.md）")
+        print("  家族區塊 %d ／ 一眼表列 %d ／ 牆表列 %d"
+              % (len(rep.families), len(rep.glance_rows), len(rep.wall_rows)))
+    else:
+        print("  候選區塊 %d ／ 待確認列 %d ／ 淘汰列 %d ／ 檢索紀錄列 %d"
+              % (len(rep.candidates), len(rep.pending_rows), len(rep.kill_rows), len(rep.trace_rows)))
     if not findings:
         print("\n✅ 格式無違規。")
         print("   注意：本檢查只驗形式，不驗真假——文獻是否存在、是否被撤稿、")

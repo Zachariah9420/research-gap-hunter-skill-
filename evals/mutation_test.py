@@ -44,6 +44,105 @@ if hasattr(sys.stdout, "reconfigure"):
 # 原始片段必須在 format_check.py 中「恰好出現一次」，否則突變位置不明確，
 # 本檔會直接判為 FAIL——模稜兩可的突變證明不了東西。
 MUTATIONS = [
+    # ---- 讀不進來的行與列 --------------------------------------------------
+    # 這三個突變削弱的都是「發現自己讀不到」的那個條件，不是回報那一行。削弱之後，
+    # 畸形的輸入回到它以前的樣子：靜默消失（前兩個），或偽裝成計數對不起來（第三個）。
+    (
+        "PARSE-01", "kill_row_short.md",
+        "不再比對表格列的欄數與表頭",
+        "        if strays is not None and len(cells) != len(header):",
+        "        if False:",
+    ),
+    (
+        "PARSE-01", "candidate_head_unreadable.md",
+        "認不出來的候選標題不再被回報（區塊照樣建起來，只是沒人說那一行讀不到）",
+        "        if m and h[\"spaced\"]:\n            continue",
+        "        if True:\n            continue",
+    ),
+    (
+        "PARSE-01", "candidate_head_no_keyword.md",
+        "候選區塊不再靠自己的欄位行認（＝標題沒有「候選」二字就整塊消失）",
+        "        shaped = h[\"block\"] == \"candidate\"\n"
+        "        looks = bool(CAND_LOOKALIKE_RE.match(title)) and h[\"candhits\"] >= 1",
+        "        shaped = False\n        looks = False",
+    ),
+    (
+        "PARSE-01", "family_head_no_id.md",
+        "家族區塊不再靠自己的欄位行認（＝標題沒有 F 編號就整塊消失）",
+        "        shaped = h[\"block\"] == \"family\"\n"
+        "        looks = bool(LAND_FAMILY_LOOKALIKE_RE.search(title)) and h[\"famhits\"] >= 1",
+        "        shaped = False\n        looks = False",
+    ),
+    (
+        "PARSE-01", "glance_table_gone.md",
+        "整張讀不到的表不再被回報（＝節名說這裡有表、實際沒有，也當作沒事）",
+        "        if head is None and title_kind in TABLE_SECTIONS.get(mode, ()):",
+        "        if False:",
+    ),
+    (
+        "PARSE-01", "landscape_no_glance.md",
+        "不再檢查「整份地形報告裡到底有沒有一張一眼表」（形狀與節名同時失效時唯一的防線）",
+        "    if mode == \"landscape\" and not any(s[\"kind\"] == \"glance\" for s in rep.sections) \\\n"
+        "            and not any(t[\"kind\"] == \"glance\" for t in rep.table_missing):",
+        "    if False:",
+    ),
+    (
+        "PARSE-01", "glance_row_lost_pipe.md",
+        "掉了行首直線的資料列不再被認出來（＝回到上線前：整列無聲消失）",
+        "                if len(PIPE_RE.findall(lines[i])) < need:\n                    continue",
+        "                if True:\n                    continue",
+    ),
+    # ---- 被改寫的區段標題 --------------------------------------------------
+    # 三個突變各關掉一種「靠形狀認出這一節」的能力。關掉之後那一節退回只認節名，
+    # 於是改名的樣本重新變成「沒有這一節、因此沒有違規」——也就是這一輪要消滅的東西。
+    (
+        "SECT-01", "consensus_section_renamed.md",
+        "第一節不再靠「裡面有預設行」認出來",
+        "    for j in range(s[\"start\"], s[\"end\"]):\n"
+        "        if ASSUM_LINE_RE.match(rep.lines[j]) or ASSUM_LOOKALIKE_RE.match(rep.lines[j]):\n"
+        "            return \"consensus\"",
+        "    for j in range(s[\"start\"], s[\"end\"]):\n"
+        "        if False:\n"
+        "            return \"consensus\"",
+    ),
+    (
+        "SECT-01", "landscape_section_renamed.md",
+        "一眼表不再靠表頭欄位認出來",
+        "        if \"family\" in cols and \"status\" in cols and (cols & set((\"buys\", \"costs\"))):\n"
+        "            return \"glance\"",
+        "        if False:\n            return \"glance\"",
+    ),
+    (
+        "SECT-01", "trace_section_renamed.md",
+        "檢索紀錄表不再靠表頭欄位認出來",
+        "    if \"query\" in cols and \"hits\" in cols:\n        return \"trace\"",
+        "    if False:\n        return \"trace\"",
+    ),
+    (
+        "ASSUM-01", "assumption_unreadable_line.md",
+        "看起來像預設、卻讀不出來的行不再被認出來（＝靜默丟掉）",
+        "        elif ASSUM_LOOKALIKE_RE.match(raw):",
+        "        elif False:",
+    ),
+    # 同一條規則的另一個臂，而這個突變體釘的是一次**真的發生過的回歸**：
+    # 為了放過散文而在編號後面加一個結構字元 lookahead。加回去之後，分隔符落在
+    # 字元類之外的預設行（`- 預設 A1——〈…〉`）對 ASSUM_LINE_RE 與 lookalike 同時
+    # 隱形——樣本轉綠，而那正是這一輪撤掉的東西。突變體不是假想的削弱，是上一版的原文。
+    (
+        "ASSUM-01", "assumption_em_dash_separator.md",
+        "把結構字元 lookahead 加回 ASSUM_LOOKALIKE_RE（＝上一版的原文：分隔符落在"
+        "：: ｜ | 〈〔 之外的預設行對兩個樣式同時隱形，靜默丟掉）",
+        "    r\"^\\s*(?:[>|｜]\\s*)*\" + _BULLET + r\"\\*{0,2}\\s*預設\\s*[A-Za-z]?\\d{1,3}\"\n)",
+        "    r\"^\\s*(?:[>|｜]\\s*)*\" + _BULLET + r\"\\*{0,2}\\s*預設\\s*[A-Za-z]?\\d{1,3}\"\n"
+        "    r\"(?=\\s*\\*{0,2}\\s*[：:｜|〈\" + BRA_OPEN + r\"])\"\n)",
+    ),
+    (
+        "VERDICT-01", "kill_row_no_verdict.md",
+        "空白的判定欄回到上線前的行為：直接跳過（於是整列不受檢查）",
+        '            raw = row.get("verdict", "")\n            if not strip_md(raw):\n',
+        '            raw = row.get("verdict", "")\n            if not strip_md(raw):\n'
+        "                continue\n            if False:\n",
+    ),
     (
         "STRUCT-01", "missing_trace_section.md",
         "把〈檢索紀錄〉從必要區段清單裡拿掉",

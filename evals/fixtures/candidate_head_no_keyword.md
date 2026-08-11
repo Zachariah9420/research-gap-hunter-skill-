@@ -9,7 +9,7 @@
 
 > 本檔是 evals 用的合成樣本。文中所有文獻皆為虛構（Author A、Author B……），
 > 識別碼使用 Crossref 測試前綴 10.5555，不對應任何真實出版品。
-> 相對於 good_report.md，本檔刻意壞掉一處：〈六、檢索紀錄〉整節被刪掉，稽核軌跡因此消失。（以前這一份是把標題改名，而改名現在由 SECT-01 抓——查核器會照表頭欄位認出那張表，區段還在，只是名字不對；要測「整節不見」就得真的刪掉它。）
+> 相對於 good_report.md，本檔刻意壞掉一處：候選 1 的標題寫成 `### C01：<題目>`，沒有「候選」兩個字，舊的標題樣式與 lookalike 都認不出來。區塊靠它自己帶的〈缺口類型〉〈新穎性判定〉〈搜尋證據〉欄位行照樣建成候選（編號從標題的 C01 撈），所以對帳不受影響——以前它會整塊消失，只留下 COUNT-01／RECON-01 的純算術，而最便宜的變綠方式是把宣告的存活數改小，等於把一個真的寫出來的候選從對帳裡抹掉。
 
 ## 一、領域共識與未被質疑的預設
 
@@ -21,7 +21,7 @@
 
 ## 二、存活候選（生成 12 個 → 存活 3 個）
 
-### 候選 1（C01）：以實際到訪公園的頻率取代住家周邊綠地面積作為暴露變項，重估綠地與身體活動的關聯
+### C01：以實際到訪公園的頻率取代住家周邊綠地面積作為暴露變項，重估綠地與身體活動的關聯
 
 - **缺口類型**：G3 預設反轉（反轉 A1）
 - **新穎性判定**：ADJACENT
@@ -80,6 +80,35 @@
 - 候選 3 的 IRB 申請書先寫草稿，這條路徑的時間成本最大。
 - 待確認的三個候選各有一個明確動作（見第三節），其中 C04 最便宜，先做它。
 - 固定動作：把存活候選拿給指導教授，直接問——哪一個你願意帶？
+
+## 六、檢索紀錄（不得省略）
+
+本次檢索後端：lit_api.py
+
+| # | 階段／候選 | 查詢詞（逐字） | 回傳筆數 | 前三筆標題（逐字，來自工具回傳） |
+|---|---|---|---|---|
+| 1 | 第1步-共識 | `urban green space physical activity` | 24 | Residential green space exposure and adult physical activity；Greenness metrics and moderate-to-vigorous activity；A survey of green space exposure metrics |
+| 2 | 第1步-共識 | `self-report accelerometer physical activity agreement` | 31 | Self-report and device-based measures of activity；Validity of physical activity questionnaires；Agreement between accelerometer and recall |
+| 3 | 第1步-推翻A1 | `park use versus residential greenness exposure` | 9 | Does proximity imply use；Access, use and the exposure gap；What greenness buffers actually capture |
+| 4 | 第1步-推翻A2 | `measurement error self-reported physical activity` | 12 | Measurement error in activity recall；Social desirability in health surveys；Correcting bias in self-reported activity |
+| 5 | C01 | `green space exposure measurement physical activity` | 12 | Residential greenness and moderate-to-vigorous physical activity in adults；Exposure definitions in green space research；Comparing greenness and use-based exposure |
+| 6 | C01 | `park visitation frequency accelerometer physical activity` | 9 | Park visits and device-measured activity；Visit frequency as an exposure variable；Time spent in parks and activity minutes |
+| 7 | C01 | `residential greenness buffer versus park use exposure` | 7 | Buffer size choices in greenness studies；Use-weighted exposure metrics；Proximity, use and the attenuation problem |
+| 8 | C02 | `park renovation footfall counter continuous measurement` | 3 | Footfall sensors in public space；Counting park visitors automatically；Continuous monitoring of open space use |
+| 9 | C02 | `natural experiment park improvement physical activity` | 5 | Natural experiment on park renovation and self-reported activity；Park improvements and neighbourhood activity；Evaluating open space investment |
+| 10 | C02 | `pedestrian counter data urban park usage` | 2 | Pedestrian counters for urban analytics；Sensor-based estimates of park usage |
+| 11 | C03 | `park shade older adults walking hot climate` | 14 | Shade provision and older adults' park-based walking；Thermal comfort and outdoor activity；Heat exposure and walking in older populations |
+| 12 | C03 | `neighbourhood park use older adults subtropical` | 11 | Neighbourhood parks and ageing residents；Older adults' outdoor activity in warm cities；Park design for an ageing population |
+| 13 | C03 | 「鄰里公園 高齡 步行 遮蔭」（NDLTD＋Airiti） | 6 | 都市鄰里公園遮蔭設施對高齡者步行行為之影響；社區公園使用行為與高齡者身體活動關聯之研究；亞熱帶都市公園夏季使用時段之調查 |
+| 14 | C04 | `street view imagery park path quality visitation` | 8 | Street view imagery for streetscape audits；Automated path quality scoring；Image-based prediction of park visits |
+| 15 | C05 | `park based physical activity GPS segmentation` | 4 | Segmenting GPS traces by land use；Trajectory analysis for activity episodes；Linking GPS and accelerometer data |
+| 16 | C06 | `park quality audit scale aesthetics activity support` | 6 | Audit tools for park quality；Aesthetics and perceived safety in parks；What park quality scales measure |
+| 17 | C07 | `distance to nearest park physical activity adults` | 11 | Distance to parks and adult physical activity；Access metrics in built environment research；Proximity effects on walking |
+| 18 | C08 | `park facility audit score visitor counts` | 9 | Facility audits and observed park use；Amenities and visitor numbers；Predicting park attendance from design |
+| 19 | C09 | `self-report versus accelerometer park based activity` | 7 | Comparing recall and device measures in parks；Session length and recall accuracy；Device-based validation of park activity |
+| 20 | C10 | `green space dose response physical activity` | 15 | Dose-response between greenness and activity；Threshold effects in green space exposure；Generalising dose-response across cities |
+| 21 | C11 | `park accessibility socioeconomic inequality` | 13 | Measuring park accessibility；Socioeconomic gradients in park access；Access inequality and health outcomes |
+| 22 | C12 | `systematic observation park zones activity intensity` | 10 | Systematic observation of park zones；Zone-level activity intensity；Agreement between observation and wearables |
 
 ## 七、可查證清單（複製給 lit-review）
 

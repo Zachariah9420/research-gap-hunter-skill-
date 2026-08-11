@@ -25,6 +25,7 @@ README 說得出口的東西，倉庫裡到底有沒有。
 """
 
 import importlib.util
+import json
 import os
 import re
 import subprocess
@@ -319,6 +320,82 @@ claim_check(
     DOC_FILES,
 )
 
+# 記分板：evals/README.md 那張表是唯一來源，兩份 README 只准複述推導出來的數字。
+# 這一段存在的理由和上面三條一樣：天花板的大小是這個 repo 最容易被說漂亮的數字，
+# 而它偏偏寫在兩份沒有人會去跑腳本的文件裡。表裡加一列而 README 沒跟上 → 這裡變紅。
+SCORE_STATUSES = ("closed", "open (decision)", "open (limit)", "false red")
+score_rows = []
+if exists("evals/README.md"):
+    ev = read("evals/README.md")
+    region = re.search(r"<!-- scorecard: start -->(.*?)<!-- scorecard: end -->", ev, re.S)
+    if not region:
+        fail("evals/README.md 找不到 `<!-- scorecard: start/end -->` 標記，"
+             "記分板的數字無從推導；兩份 README 寫的天花板數字等於沒有人在對")
+    else:
+        for raw in region.group(1).split("\n"):
+            if not raw.lstrip().startswith("|"):
+                continue
+            cells = [c.strip() for c in raw.strip().strip("|").split("|")]
+            if len(cells) < 3:
+                continue
+            status = cells[1].strip("`").strip()
+            if status in SCORE_STATUSES:
+                score_rows.append((cells[0], status))
+        ids = [r[0] for r in score_rows]
+        dupes = sorted(set(i for i in ids if ids.count(i) > 1))
+        if dupes:
+            fail("evals/README.md 記分板有重複的列編號：%s（編號是這張表的主鍵，"
+                 "重複等於有一列被另一列蓋掉）" % "、".join(dupes))
+        if not score_rows:
+            fail("evals/README.md 記分板標記之間讀不到任何一列（狀態欄必須是 %s 其中之一）"
+                 % "／".join(SCORE_STATUSES))
+
+n_score = len(score_rows)
+n_closed = len([r for r in score_rows if r[1] == "closed"])
+n_decision = len([r for r in score_rows if r[1] == "open (decision)"])
+n_limit = len([r for r in score_rows if r[1] == "open (limit)"])
+n_open = n_decision + n_limit
+n_falsered = len([r for r in score_rows if r[1] == "false red"])
+if score_rows:
+    print("    記分板列數：%d（closed %d／open-decision %d／open-limit %d／false-red %d）"
+          % (n_score, n_closed, n_decision, n_limit, n_falsered))
+    claim_check(
+        "記分板總列數", n_score,
+        [re.compile(r"(\d+)[ \t]+recorded[ \t]+cases?\b"),
+         re.compile(r"(\d+)[ \t]*筆(?:記錄)?在案的案例")],
+        READMES,
+    )
+    claim_check(
+        "構造上關掉的列數", n_closed,
+        [re.compile(r"(\d+)[ \t]+(?:are[ \t]+)?closed[ \t]+by[ \t]+construction"),
+         re.compile(r"(\d+)[ \t]*筆構造上再也打不到")],
+        READMES,
+    )
+    claim_check(
+        "仍打得到的列數", n_open,
+        [re.compile(r"(\d+)[ \t]+(?:are[ \t]+)?still[ \t]+reachable"),
+         re.compile(r"(\d+)[ \t]*筆今天仍然打得到")],
+        READMES,
+    )
+    claim_check(
+        "刻意不動的列數", n_decision,
+        [re.compile(r"(\d+)[ \t]+(?:are[ \t]+)?open[ \t]+by[ \t]+decision"),
+         re.compile(r"(\d+)[ \t]*筆是刻意不動")],
+        READMES,
+    )
+    claim_check(
+        "原理上關不掉的列數", n_limit,
+        [re.compile(r"(\d+)[ \t]+(?:are[ \t]+)?open[ \t]+by[ \t]+limit"),
+         re.compile(r"(\d+)[ \t]*筆是原理上關不掉")],
+        READMES,
+    )
+    claim_check(
+        "刻意留下的假紅燈數", n_falsered,
+        [re.compile(r"(\d+)[ \t]+accepted[ \t]+false[ \t]+reds?\b"),
+         re.compile(r"(\d+)[ \t]*筆刻意留下的假紅燈")],
+        READMES,
+    )
+
 # 生成器數：以 references/generators.md 實際定義的 G 編號為準
 if exists("references/generators.md"):
     gens = sorted(set(re.findall(r"\bG([1-9])\b", read("references/generators.md"))))
@@ -442,6 +519,43 @@ if _missing_status:
          % "、".join(_missing_status))
 else:
     ok("〈狀態〉的 %d 個合法值 SKILL.md 都寫過" % len(fc.LAND_STATUS_VALUES))
+
+# 6g. rgh-block 的三個逐字字串：圍欄標籤、schema 版本、四個 status 列舉值。
+# 這三樣是「查核器照著找」與「報告照著寫」之間唯一的介面；任何一個漂掉，
+# 一份**照著 SKILL.md 寫的**報告會被判 BLOCK-01，而報告是對的、查核器是錯的。
+_block_strings = [("圍欄標籤", fc.BLOCK_FENCE_INFO),
+                  ("schema 版本", fc.BLOCK_SCHEMA_VERSION)]
+_block_strings += [("status 列舉值", v) for v in fc.ASSUM_STATUS_VALUES]
+_missing_block = [(label, s) for label, s in _block_strings if s not in skill]
+if _missing_block:
+    for label, s in _missing_block:
+        fail("format_check 的 rgh-block %s「%s」在 SKILL.md 裡找不到逐字相同的一份——"
+             "照 SKILL.md 寫的報告會被判違規" % (label, s))
+else:
+    ok("rgh-block 的圍欄標籤、schema 版本與 %d 個 status 值 SKILL.md 都逐字寫過"
+       % len(fc.ASSUM_STATUS_VALUES))
+
+# 6h. SKILL.md 印出來的那個範例區塊，本身要通得過 schema 驗證。
+# 這是本檔最強的一條耦合：**照規格抄一份，就要是查核器收得下的一份**。
+# 一份自己的範例過不了自己的查核器的規格，沒有人跟得動。
+_examples = [b for b in fc.find_fenced_blocks(skill) if b["info"] == fc.BLOCK_FENCE_INFO]
+if not _examples:
+    fail("SKILL.md 裡找不到任何 ```%s 範例區塊——寫報告的人沒有可以照抄的形狀"
+         % fc.BLOCK_FENCE_INFO)
+else:
+    print("    SKILL.md 的 rgh-block 範例：%d 個" % len(_examples))
+    for _b in _examples:
+        _line = skill[:0].count("\n") + _b["start"] + 1
+        try:
+            _data = json.loads(_b["body"])
+        except ValueError as _exc:
+            fail("SKILL.md L%d 的 rgh-block 範例不是合法 JSON：%s" % (_line, _exc))
+            continue
+        _problems = fc.validate_block(_data)
+        for _check, _loc, _msg in _problems:
+            fail("SKILL.md L%d 的 rgh-block 範例不符 schema（%s）：%s" % (_line, _check, _msg))
+        if not _problems:
+            ok("SKILL.md L%d 的 rgh-block 範例通過 %s 的 schema 驗證" % (_line, "validate_block"))
 
 
 # ==========================================================================

@@ -10,14 +10,14 @@
 
 > 本檔是 evals 用的合成樣本。文中所有文獻皆為虛構（Author CA、Author CB……），
 > 識別碼使用 Crossref 測試前綴 10.5555，不對應任何真實出版品。
-> 相對於 good_inherited_report.md，本檔刻意壞掉一處：A3 標了〔已補取樣框〕，摘要層精讀那一段卻不見了——補框宣稱了就要跟本輪量化的預設同標準。
+> 相對於 good_inherited_report.md，本檔刻意壞掉一處：區塊裡 A3 的 `status` 仍是 `inherited_framed`，取樣框卻少了 `K`。補框一旦宣稱出去，就與本輪量化的預設同標準；退路是把 status 改回 `inherited`（效力同印象級、不得當 G3 輸入），**不是**改寫成印象級——效力相同、來源不同，讀者要看得出這一條是別份報告帶進來的。
 
 ## 一、領域共識與未被質疑的預設
 
 - 主流立場：綠地暴露的計算範圍幾乎都綁在住家地址上，活動範圍被當成可以由住家位置近似的東西（代表文獻：Author CA et al. (2022)〈Home-based buffers as the default exposure unit〉，DOI:10.5555/synthetic-3001）
 - 預設 A1：〈居民的綠地暴露可以用住家所在行政區的平均值近似〉｜標題層掃描 21 篇（檢索詞 `neighbourhood unit green space exposure adults`，limit 21）｜摘要層精讀 7 篇（pick 索引 0,2,4,6,9,12,15），其中 6 篇沿用此預設｜推翻性檢索 `activity space versus residential neighbourhood exposure` 回傳 10 篇，讀後 4 篇確實檢驗過此預設｜樣本來源：2019–2025，Semantic Scholar ＋ Crossref
 - 預設 A2〔承接自地形 W1，支撐家族 F1、F2、F3〕：〈暴露可以用一個「人不在場也量得到」的空間代理量代替〉——未補取樣框，效力同〔印象，未驗證〕，不得作為 G3 輸入
-- 預設 A3〔承接自地形 W3，已補取樣框〕：〈量測到的那個時點或那一段，可以代表更長的期間〉｜標題層掃描 18 篇（檢索詞 `greenness exposure temporal stability`，limit 18）｜推翻性檢索 `seasonal variation greenness exposure misclassification` 回傳 11 篇，讀後 4 篇確實檢驗過此預設｜樣本來源：2018–2025，Semantic Scholar
+- 預設 A3〔承接自地形 W3，已補取樣框〕：〈量測到的那個時點或那一段，可以代表更長的期間〉｜標題層掃描 18 篇（檢索詞 `greenness exposure temporal stability`，limit 18）｜摘要層精讀 6 篇（pick 索引 0,1,3,5,8,11），其中 5 篇沿用此預設｜推翻性檢索 `seasonal variation greenness exposure misclassification` 回傳 11 篇，讀後 4 篇確實檢驗過此預設｜樣本來源：2018–2025，Semantic Scholar
 
 ## 二、存活候選（生成 5 個 → 存活 2 個）
 
@@ -88,4 +88,16 @@
 ```
 retract: 10.5555/synthetic-3001 10.5555/synthetic-3002 10.5555/synthetic-3003 10.5555/synthetic-3004 10.5555/synthetic-3005 10.5555/synthetic-3006 10.5555/synthetic-3007
 check:   （本報告全部引用文獻）
+```
+
+```json rgh-block
+{
+"schema": "rgh-block/1",
+"settlement": {"generated": 5, "survived": 2, "pending": 1, "killed": 2},
+"assumptions": [
+{"id": "A1", "status": "framed", "anchor": "居民的綠地暴露可以用住家所在行政區的平均值近似", "frame": {"N": 21, "query": "neighbourhood unit green space exposure adults", "limit": 21, "Mp": 7, "pick": [0,2,4,6,9,12,15], "M": 6, "refute_query": "activity space versus residential neighbourhood exposure", "Kp": 10, "K": 4, "sample": "2019–2025，Semantic Scholar ＋ Crossref"}},
+{"id": "A2", "status": "inherited", "anchor": "暴露可以用一個「人不在場也量得到」的空間代理量代替", "frame": null, "wall": "W1", "families": ["F1","F2","F3"]},
+{"id": "A3", "status": "inherited_framed", "anchor": "量測到的那個時點或那一段，可以代表更長的期間", "frame": {"N": 18, "query": "greenness exposure temporal stability", "limit": 18, "Mp": 6, "pick": [0,1,3,5,8,11], "M": 5, "refute_query": "seasonal variation greenness exposure misclassification", "Kp": 11, "sample": "2018–2025，Semantic Scholar"}, "wall": "W3"}
+]
+}
 ```

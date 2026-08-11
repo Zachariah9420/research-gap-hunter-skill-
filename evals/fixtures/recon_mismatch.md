@@ -5,11 +5,11 @@
 **貢獻判準**：方法新穎 ＋ 在地驗證（複選）
 **中文索引**：已檢索 NDLTD 臺灣博碩士論文加值系統、Airiti 華藝線上圖書館
 **降級聲明**：無
-**候選結算**：生成 12 ＝ 存活 3 ＋ 待確認 4 ＋ 已淘汰 6
+**候選結算**：生成 12 ＝ 存活 3 ＋ 待確認 3 ＋ 已淘汰 6
 
 > 本檔是 evals 用的合成樣本。文中所有文獻皆為虛構（Author A、Author B……），
 > 識別碼使用 Crossref 測試前綴 10.5555，不對應任何真實出版品。
-> 相對於 good_report.md，本檔刻意壞掉一處：表頭的候選結算把待確認寫成 4，與第三節的 3 列對不起來，總數也不等於生成數。
+> 相對於 good_report.md，本檔刻意壞掉一處：第三節的 C06 那一列被刪掉，區塊結算仍寫待確認 3。候選在生成到報告之間安靜消失，是第三節存在的全部理由；少了這條對帳，第三節就只是換一個藏身處。
 
 ## 一、領域共識與未被質疑的預設
 
@@ -60,7 +60,6 @@
 |---|---|---|---|
 | C04 以街景影像自動評分公園步道品質並預測使用量 | DONE? | 標題高度相似的 Author M et al. (2024) 只讀到標題，摘要未取得，母體與結果變項兩項對不齊 | 跑 `pick` 取該篇摘要，比對母體／處理／結果變項／研究設計四項，齊了改判 DONE，不齊回到存活 |
 | C05 以穿戴裝置的 GPS 軌跡切出居民在公園內的活動片段 | UNSEARCHABLE | 領域正規術語未定：`park based physical activity GPS` 與 `greenspace exposure trajectory segmentation` 回到兩個不相通的社群 | 先讀兩個社群各一篇綜述確定術語，再用該術語重跑兩輪檢索，才回來判定 |
-| C06 現行公園品質評估量表其實測到的是景觀美感而非活動支持度 | 待全文查證 | 量表題項只存在於全文，DOI:10.5555/synthetic-0012 無 OA 版本，尚未讀到方法—測量段落 | 走館際合作取得全文，讀方法段並逐字引出題項文字，才可以下構念質疑 |
 
 ## 四、已淘汰
 
@@ -115,4 +114,16 @@
 ```
 retract: 10.5555/synthetic-0002 10.5555/synthetic-0003 10.5555/synthetic-0004 10.5555/synthetic-0005 10.5555/synthetic-0006 10.5555/synthetic-0007 10.5555/synthetic-0008 10.5555/synthetic-0009 10.5555/synthetic-0010 10.5555/synthetic-0011 10.5555/synthetic-0013 10.5555/synthetic-0014 10.5555/synthetic-0015 10.5555/synthetic-0016 10.5555/synthetic-0017
 check:   （本報告全部引用文獻）
+```
+
+```json rgh-block
+{
+"schema": "rgh-block/1",
+"settlement": {"generated": 12, "survived": 3, "pending": 3, "killed": 6},
+"assumptions": [
+{"id": "A1", "status": "framed", "anchor": "住家周邊的綠地面積可以代表居民實際獲得的綠地暴露", "frame": {"N": 24, "query": "urban green space physical activity", "limit": 24, "Mp": 8, "pick": [0,2,3,5,7,9,11,14], "M": 6, "refute_query": "park use versus residential greenness exposure", "Kp": 9, "K": 3, "sample": "2019–2025，Semantic Scholar ＋ Crossref"}},
+{"id": "A2", "status": "framed", "anchor": "自陳問卷測得的身體活動量足以取代加速規的客觀量測", "frame": {"N": 31, "query": "self-report accelerometer physical activity agreement", "limit": 31, "Mp": 5, "pick": [1,4,6,8,12], "M": 4, "refute_query": "measurement error self-reported physical activity", "Kp": 12, "K": 2, "sample": "2019–2025，Semantic Scholar"}},
+{"id": "A3", "status": "impression", "anchor": "居民願意步行前往公園的距離上限大約是 500 公尺", "frame": null}
+]
+}
 ```

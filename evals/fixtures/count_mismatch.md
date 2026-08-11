@@ -9,7 +9,7 @@
 
 > 本檔是 evals 用的合成樣本。文中所有文獻皆為虛構（Author A、Author B……），
 > 識別碼使用 Crossref 測試前綴 10.5555，不對應任何真實出版品。
-> 相對於 good_report.md，本檔刻意壞掉一處：第二節標題宣告存活 4 個，實際只寫了 3 個候選區塊。
+> 相對於 good_report.md，本檔刻意壞掉一處：候選 3（C03）的整個區塊從第二節不見了，區塊的結算仍寫存活 3。**兩個數字現在來自不同的地方**——一個是區塊自己宣告的，一個是散文裡真的寫出來的——所以這是一次真的交叉比對；以前兩邊都讀同一份散文（第二節標題那一行），而那一行還是「全文第一個 match」找到的。
 
 ## 一、領域共識與未被質疑的預設
 
@@ -19,7 +19,7 @@
 - 預設 A2：〈自陳問卷測得的身體活動量足以取代加速規的客觀量測〉｜標題層掃描 31 篇（檢索詞 `self-report accelerometer physical activity agreement`，limit 31）｜摘要層精讀 5 篇（pick 索引 1,4,6,8,12），其中 4 篇沿用此預設｜推翻性檢索 `measurement error self-reported physical activity` 回傳 12 篇，讀後 2 篇確實檢驗過此預設｜樣本來源：2019–2025，Semantic Scholar
 - 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入
 
-## 二、存活候選（生成 12 個 → 存活 4 個）
+## 二、存活候選（生成 12 個 → 存活 3 個）
 
 ### 候選 1（C01）：以實際到訪公園的頻率取代住家周邊綠地面積作為暴露變項，重估綠地與身體活動的關聯
 
@@ -42,17 +42,6 @@
 - **可行性**：需要公園管理單位的計數器原始資料授權，使用者尚未取得；方法端只需中斷時間序列分析，成本低。
 - **指導教授適配**：請確認老師是否有管道取得計數器資料，以及公園管理單位是否同意這批資料寫進論文。
 - **最可能失敗的原因**：計數器只數人次、數不出活動強度，對不上身體活動的結果變項；社會性風險是管理單位不願被量出改造成效不如預期。
-
-### 候選 3（C03）：台灣都市鄰里公園的遮蔭配置與高齡居民步行活動量的關聯
-
-- **缺口類型**：G1 負空間
-- **新穎性判定**：INCREMENTAL
-- **搜尋證據**：查詢 1 `park shade older adults walking hot climate`（回傳 14 筆）；查詢 2 `neighbourhood park use older adults subtropical`（回傳 11 筆）；查詢 3（中文索引）「鄰里公園 高齡 步行 遮蔭」於 NDLTD 與 Airiti（合計回傳 6 筆）
-- **最接近的既有研究**：Author L et al. (2021)〈Shade provision and older adults' park-based walking〉，DOI:10.5555/synthetic-0008。差異維度是氣候情境：該研究的樣本是溫帶城市的高齡使用者，遮蔭在當地不是限制活動時段的主要因素；台灣夏季的高溫與日照時數讓遮蔭成為能不能出門的門檻，有理由讓遮蔭與步行量的關聯強度與時段分布都不同。
-- **已排隊檢查**：該文 limitations 點名「樣本限於溫帶氣候城市」，正好指向本候選；因此本候選定位為在地驗證而非新穎主張；snowball citations 於 2026-08-10 執行，12 篇引用文獻中未見亞熱帶城市情境者。
-- **可行性**：需要現場觀察與受訪同意與 IRB；使用者已聯繫兩個行政區的里辦公室，期限內可行。
-- **指導教授適配**：請確認老師是否接受「在地驗證」作為主要貢獻，以及系所是否認可此類貢獻定位。
-- **最可能失敗的原因**：可招募的高齡受訪人數過少導致統計檢定力不足；社會性風險是夏季現場觀察的時段限制讓資料收集期被壓縮。
 
 ## 三、待確認（證據不足，尚未定案）
 
@@ -115,4 +104,16 @@
 ```
 retract: 10.5555/synthetic-0002 10.5555/synthetic-0003 10.5555/synthetic-0004 10.5555/synthetic-0005 10.5555/synthetic-0006 10.5555/synthetic-0007 10.5555/synthetic-0008 10.5555/synthetic-0009 10.5555/synthetic-0010 10.5555/synthetic-0011 10.5555/synthetic-0013 10.5555/synthetic-0014 10.5555/synthetic-0015 10.5555/synthetic-0016 10.5555/synthetic-0017
 check:   （本報告全部引用文獻）
+```
+
+```json rgh-block
+{
+"schema": "rgh-block/1",
+"settlement": {"generated": 12, "survived": 3, "pending": 3, "killed": 6},
+"assumptions": [
+{"id": "A1", "status": "framed", "anchor": "住家周邊的綠地面積可以代表居民實際獲得的綠地暴露", "frame": {"N": 24, "query": "urban green space physical activity", "limit": 24, "Mp": 8, "pick": [0,2,3,5,7,9,11,14], "M": 6, "refute_query": "park use versus residential greenness exposure", "Kp": 9, "K": 3, "sample": "2019–2025，Semantic Scholar ＋ Crossref"}},
+{"id": "A2", "status": "framed", "anchor": "自陳問卷測得的身體活動量足以取代加速規的客觀量測", "frame": {"N": 31, "query": "self-report accelerometer physical activity agreement", "limit": 31, "Mp": 5, "pick": [1,4,6,8,12], "M": 4, "refute_query": "measurement error self-reported physical activity", "Kp": 12, "K": 2, "sample": "2019–2025，Semantic Scholar"}},
+{"id": "A3", "status": "impression", "anchor": "居民願意步行前往公園的距離上限大約是 500 公尺", "frame": null}
+]
+}
 ```

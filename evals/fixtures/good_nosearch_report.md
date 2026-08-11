@@ -60,3 +60,14 @@
 retract: （本次無引用文獻可查）
 check:   （本次無引用文獻可查）
 ```
+
+```json rgh-block
+{
+"schema": "rgh-block/1",
+"settlement": {"generated": 3, "survived": 0, "pending": 3, "killed": 0},
+"assumptions": [
+{"id": "A1", "status": "impression", "anchor": "夜間照明的作用就是照度夠不夠，與空間感受無關", "frame": null},
+{"id": "A2", "status": "impression", "anchor": "夜間公園使用者的活動型態與白天相同", "frame": null}
+]
+}
+```

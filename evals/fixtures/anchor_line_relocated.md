@@ -9,13 +9,12 @@
 
 > 本檔是 evals 用的合成樣本。文中所有文獻皆為虛構（Author A、Author B……），
 > 識別碼使用 Crossref 測試前綴 10.5555，不對應任何真實出版品。
-> 相對於 good_report.md，本檔刻意壞掉一處：C07 的淘汰列〈判定〉欄留空。以前空判定是直接跳過的，於是 KILL-01／02／03 與 ID-01 全部沒有對象——一列沒有判定的淘汰，整列不受檢查而報告是綠的。
+> 相對於 good_report.md，本檔刻意壞掉一處：A1 那**整行**從第一節被搬進候選 1 的〈可行性〉段落底下。字一個都沒改，所以「文件裡有沒有這個字串」問不出任何問題——區塊的每一個錨點都對得上，而第一節裡已經沒有這一條了。SKILL.md〈rgh-block〉的錨點規則寫的是「出現在第一節那條預設行上」，這一份釘的就是那半句：**位置也是錨點的一部分**。（重構之前的那棵樹會抓到它，重構之後一度不會——所以它同時是一條回歸樣本。）
 
 ## 一、領域共識與未被質疑的預設
 
 - 主流立場：都市綠地與居民身體活動的關聯，主要以住家周邊緩衝區內的綠覆率或綠地面積比例衡量（代表文獻：Author A et al. (2021)〈Residential green space exposure and adult physical activity〉，DOI:10.5555/synthetic-0001）
 - 主流立場：綠地不足被當成土地使用的供給問題，而不是誰真的走得到、走得進去的問題（代表文獻：Author B (2023)〈A survey of green space exposure metrics〉，arXiv:2401.00001）
-- 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉｜標題層掃描 24 篇（檢索詞 `urban green space physical activity`，limit 24）｜摘要層精讀 8 篇（pick 索引 0,2,3,5,7,9,11,14），其中 6 篇沿用此預設｜推翻性檢索 `park use versus residential greenness exposure` 回傳 9 篇，讀後 3 篇確實檢驗過此預設｜樣本來源：2019–2025，Semantic Scholar ＋ Crossref
 - 預設 A2：〈自陳問卷測得的身體活動量足以取代加速規的客觀量測〉｜標題層掃描 31 篇（檢索詞 `self-report accelerometer physical activity agreement`，limit 31）｜摘要層精讀 5 篇（pick 索引 1,4,6,8,12），其中 4 篇沿用此預設｜推翻性檢索 `measurement error self-reported physical activity` 回傳 12 篇，讀後 2 篇確實檢驗過此預設｜樣本來源：2019–2025，Semantic Scholar
 - 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入
 
@@ -29,6 +28,7 @@
 - **最接近的既有研究**：Author C et al. (2023)〈Residential greenness and moderate-to-vigorous physical activity in adults〉，DOI:10.5555/synthetic-0002。差異維度是暴露變項的操作化：該研究以住家 500 公尺緩衝區的綠覆率當暴露量，本候選以居民實際到訪公園的頻率與停留時間當暴露量；住得近不等於走得進去，若兩種暴露量測給出的關聯強度差距明顯，就代表既有估計量到的是可及性而不是使用，這是可被否證的預測。
 - **已排隊檢查**：該文 limitations 只寫「未區分綠地的可及性與實際使用」，未點名以到訪頻率重做暴露量測；snowball citations 於 2026-08-10 執行，14 篇引用文獻的標題與摘要中未見以到訪頻率為暴露變項者。
 - **可行性**：需要同時具備到訪紀錄與活動量的資料，使用者手上有兩個行政區的公園使用日誌；暴露變項的定義需與公園管理單位對齊一次，估兩週。
+- 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉｜標題層掃描 24 篇（檢索詞 `urban green space physical activity`，limit 24）｜摘要層精讀 8 篇（pick 索引 0,2,3,5,7,9,11,14），其中 6 篇沿用此預設｜推翻性檢索 `park use versus residential greenness exposure` 回傳 9 篇，讀後 3 篇確實檢驗過此預設｜樣本來源：2019–2025，Semantic Scholar ＋ Crossref
 - **指導教授適配**：請向老師確認，是否接受「暴露量測方式本身的效度」作為主要貢獻，而不是提出新的綠地指標。
 - **最可能失敗的原因**：到訪紀錄若倚賴受訪者回憶，量測誤差可能大到蓋掉兩種暴露的差異；社會性風險是口委可能認為換一種暴露量測只是操作化細節，不是研究問題。
 
@@ -66,7 +66,7 @@
 
 | 候選 | 判定 | 淘汰原因 | 關鍵文獻 | 識別碼 | 發表型態 | 撤稿檢查 |
 |---|---|---|---|---|---|---|
-| C07 以住家到最近公園的距離預測居民身體活動量 |  | 摘要逐字引句：「Using distance from home to the nearest public park, we find that each additional 100 metres is associated with 3.4 fewer minutes of weekly moderate-to-vigorous physical activity among 5,200 urban adults.」母體、自變項、結果變項、研究設計四項全中。 | Author D et al. (2024) | DOI:10.5555/synthetic-0003 | 期刊 | 已查，Crossref 無記錄 |
+| C07 以住家到最近公園的距離預測居民身體活動量 | DONE | 摘要逐字引句：「Using distance from home to the nearest public park, we find that each additional 100 metres is associated with 3.4 fewer minutes of weekly moderate-to-vigorous physical activity among 5,200 urban adults.」母體、自變項、結果變項、研究設計四項全中。 | Author D et al. (2024) | DOI:10.5555/synthetic-0003 | 期刊 | 已查，Crossref 無記錄 |
 | C08 以公園設施稽核評分預測公園使用人次 | DONE | 摘要逐字引句：「A facility audit score explains 46 percent of the variance in observed visitor counts across 168 neighbourhood parks.」母體與結果變項與本候選相同，研究設計同為橫斷面稽核。 | Author N et al. (2023) | DOI:10.5555/synthetic-0013 | 會議 | 已查，Crossref 無記錄 |
 | C09 比較自陳與加速規測得的公園內身體活動量 | DONE | 摘要逐字引句：「We compare self-reported and accelerometer-measured park-based activity in the same participants and find no agreement beyond chance for sessions shorter than ten minutes.」四項對齊，含同樣的比較設計。 | Author O et al. (2024) | DOI:10.5555/synthetic-0014 | 期刊 | 已查，Crossref 無記錄 |
 | C10 建立綠地暴露與身體活動的劑量—反應曲線 | CROWDED | 三篇分別涵蓋本候選的三個子問題：暴露的量化方式（Author E）、劑量—反應函數的形狀（Author F）、跨城市泛化（Author G）；逐一比對後沒有剩餘的未涵蓋子問題，故非 ADJACENT。 | Author E et al. (2022)；Author F et al. (2023)；Author G et al. (2024) | DOI:10.5555/synthetic-0004；DOI:10.5555/synthetic-0005；DOI:10.5555/synthetic-0006 | 期刊、會議、期刊 | 已查，Crossref 無記錄 |

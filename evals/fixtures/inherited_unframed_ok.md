@@ -89,3 +89,15 @@
 retract: 10.5555/synthetic-3001 10.5555/synthetic-3002 10.5555/synthetic-3003 10.5555/synthetic-3004 10.5555/synthetic-3005 10.5555/synthetic-3006 10.5555/synthetic-3007
 check:   （本報告全部引用文獻）
 ```
+
+```json rgh-block
+{
+"schema": "rgh-block/1",
+"settlement": {"generated": 5, "survived": 2, "pending": 1, "killed": 2},
+"assumptions": [
+{"id": "A1", "status": "framed", "anchor": "居民的綠地暴露可以用住家所在行政區的平均值近似", "frame": {"N": 21, "query": "neighbourhood unit green space exposure adults", "limit": 21, "Mp": 7, "pick": [0,2,4,6,9,12,15], "M": 6, "refute_query": "activity space versus residential neighbourhood exposure", "Kp": 10, "K": 4, "sample": "2019–2025，Semantic Scholar ＋ Crossref"}},
+{"id": "A2", "status": "inherited", "anchor": "暴露可以用一個「人不在場也量得到」的空間代理量代替", "frame": null, "wall": "W1", "families": ["F1","F2","F3"]},
+{"id": "A3", "status": "inherited_framed", "anchor": "量測到的那個時點或那一段，可以代表更長的期間", "frame": {"N": 18, "query": "greenness exposure temporal stability", "limit": 18, "Mp": 6, "pick": [0,1,3,5,8,11], "M": 5, "refute_query": "seasonal variation greenness exposure misclassification", "Kp": 11, "K": 4, "sample": "2018–2025，Semantic Scholar"}, "wall": "W3"}
+]
+}
+```

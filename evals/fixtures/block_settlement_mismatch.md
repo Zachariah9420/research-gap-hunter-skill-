@@ -9,7 +9,7 @@
 
 > 本檔是 evals 用的合成樣本。文中所有文獻皆為虛構（Author A、Author B……），
 > 識別碼使用 Crossref 測試前綴 10.5555，不對應任何真實出版品。
-> 相對於 good_report.md，本檔加一行**在講**那兩條預設的散文（`- 預設 A1 與 A2 都與量測方式有關`），而它**應該是紅的**。這一份原本叫 `assumption_prose_mention_ok.md`、原本釘的是「散文不得被報成讀不到」；那條容忍度是靠 lookalike 樣式的一個結構字元 lookahead 換來的，而那個 lookahead 同時讓 `- 預設 A2——〈…〉`（分隔符落在字元類之外）對兩個樣式都隱形——修掉一次假紅燈，換回一個假綠燈。取捨已定：假紅燈花讀者五分鐘，假綠燈是查核器對沒讀過的文件說通過。所以這一行現在會被報成 ASSUM-01，而這份樣本釘的就是那個**刻意的假紅燈**——它一旦變綠，代表 lookahead 又被加回去了。
+> 相對於 good_report.md，本檔刻意壞掉一處：區塊結算的〈已淘汰〉寫 5，生成 12 ≠ 存活 3 ＋ 待確認 3 ＋ 已淘汰 5。算術在區塊裡就對不起來，所以查核器不再拿這四個數字去跟散文的列數比對——一個缺陷不該變成三句話，其中兩句還會把作者送去改沒有壞的東西（第四節那六列是對的）。
 
 ## 一、領域共識與未被質疑的預設
 
@@ -18,7 +18,6 @@
 - 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉｜標題層掃描 24 篇（檢索詞 `urban green space physical activity`，limit 24）｜摘要層精讀 8 篇（pick 索引 0,2,3,5,7,9,11,14），其中 6 篇沿用此預設｜推翻性檢索 `park use versus residential greenness exposure` 回傳 9 篇，讀後 3 篇確實檢驗過此預設｜樣本來源：2019–2025，Semantic Scholar ＋ Crossref
 - 預設 A2：〈自陳問卷測得的身體活動量足以取代加速規的客觀量測〉｜標題層掃描 31 篇（檢索詞 `self-report accelerometer physical activity agreement`，limit 31）｜摘要層精讀 5 篇（pick 索引 1,4,6,8,12），其中 4 篇沿用此預設｜推翻性檢索 `measurement error self-reported physical activity` 回傳 12 篇，讀後 2 篇確實檢驗過此預設｜樣本來源：2019–2025，Semantic Scholar
 - 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入
-- 預設 A1 與 A2 都與量測方式有關，讀的時候要一起看
 
 ## 二、存活候選（生成 12 個 → 存活 3 個）
 
@@ -116,4 +115,16 @@
 ```
 retract: 10.5555/synthetic-0002 10.5555/synthetic-0003 10.5555/synthetic-0004 10.5555/synthetic-0005 10.5555/synthetic-0006 10.5555/synthetic-0007 10.5555/synthetic-0008 10.5555/synthetic-0009 10.5555/synthetic-0010 10.5555/synthetic-0011 10.5555/synthetic-0013 10.5555/synthetic-0014 10.5555/synthetic-0015 10.5555/synthetic-0016 10.5555/synthetic-0017
 check:   （本報告全部引用文獻）
+```
+
+```json rgh-block
+{
+"schema": "rgh-block/1",
+"settlement": {"generated": 12, "survived": 3, "pending": 3, "killed": 5},
+"assumptions": [
+{"id": "A1", "status": "framed", "anchor": "住家周邊的綠地面積可以代表居民實際獲得的綠地暴露", "frame": {"N": 24, "query": "urban green space physical activity", "limit": 24, "Mp": 8, "pick": [0,2,3,5,7,9,11,14], "M": 6, "refute_query": "park use versus residential greenness exposure", "Kp": 9, "K": 3, "sample": "2019–2025，Semantic Scholar ＋ Crossref"}},
+{"id": "A2", "status": "framed", "anchor": "自陳問卷測得的身體活動量足以取代加速規的客觀量測", "frame": {"N": 31, "query": "self-report accelerometer physical activity agreement", "limit": 31, "Mp": 5, "pick": [1,4,6,8,12], "M": 4, "refute_query": "measurement error self-reported physical activity", "Kp": 12, "K": 2, "sample": "2019–2025，Semantic Scholar"}},
+{"id": "A3", "status": "impression", "anchor": "居民願意步行前往公園的距離上限大約是 500 公尺", "frame": null}
+]
+}
 ```

@@ -35,6 +35,11 @@ LAND_BASE = os.path.join(FIXTURES, "good_landscape.md")
 # 與承接後補了取樣框的預設。這三種在同一份裡並存才是真實的形狀，
 # 而它們的差別只能靠改一行來釘，所以它得自己當基準，不能是 good_report.md 的變體。
 INHERIT_BASE = os.path.join(FIXTURES, "good_inherited_report.md")
+# 第四個基準：偵察模式報告。SKILL.md〈偵察模式〉規定的**另一種合規輸出**——
+# 沒有跑第 1 步、不產生存活候選、不執行淘汰，所以它是唯一可以交出 `"assumptions": []`
+# 的缺口報告。它得自己當基準，因為那個空清單正是它與其他每一份的差別：
+# 從 good_report.md 改出來的話，刪掉三條預設會同時打壞散文的錨點，變成三個維度。
+RECON_BASE = os.path.join(FIXTURES, "good_recon_report.md")
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -97,20 +102,150 @@ FIXTURES_SPEC = [
           "### C01：以實際到訪公園的頻率取代住家周邊綠地面積作為暴露變項，重估綠地與身體活動的關聯")],
     ),
     (
-        "assumption_prose_mention.md",
-        "相對於 good_report.md，本檔加一行**在講**那兩條預設的散文"
-        "（`- 預設 A1 與 A2 都與量測方式有關`），而它**應該是紅的**。"
-        "這一份原本叫 `assumption_prose_mention_ok.md`、原本釘的是「散文不得被報成讀不到」；"
-        "那條容忍度是靠 lookalike 樣式的一個結構字元 lookahead 換來的，而那個 lookahead "
-        "同時讓 `- 預設 A2——〈…〉`（分隔符落在字元類之外）對兩個樣式都隱形——"
-        "修掉一次假紅燈，換回一個假綠燈。取捨已定：假紅燈花讀者五分鐘，"
-        "假綠燈是查核器對沒讀過的文件說通過。所以這一行現在會被報成 ASSUM-01，"
-        "而這份樣本釘的就是那個**刻意的假紅燈**——它一旦變綠，代表 lookahead 又被加回去了。",
+        "block_absent.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：整個 `json rgh-block` 區塊被刪掉，散文一字未動。"
+        "第一節的預設清單與表頭的候選結算只從區塊讀，所以沒有區塊＝這兩塊完全沒有被查過——"
+        "而沒有被查過不能長得像通過。這一份釘的就是「不得留降級模式」那條界線：留一條"
+        "「沒有區塊就只查散文」的路，等於留一句「不想被查就別寫區塊」。",
+        [("drop_block",)],
+    ),
+    (
+        "block_duplicate.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：同一個區塊出現兩次。"
+        "「整份恰好一個」單獨就關掉一整類誘餌——在檔案某處放一個算術自洽、與實際列數相符的"
+        "假區塊，讓查核器讀到它而不是真的那一個。以前結算與候選數都是「全文第一個 match 就 break」，"
+        "那一行甚至可以藏在 HTML 註解裡，讀者在畫面上看不到。",
+        [("dup_block",)],
+    ),
+    (
+        "block_bad_json.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：區塊的 `\"schema\"` 那一行少了結尾逗號，整段不是合法 JSON。"
+        "這一份釘的是「結構化資料沒有寬容可談」：散文可以有形狀變體，JSON 沒有，"
+        "所以解析失敗一定是一筆大聲的 finding，帶行號、欄號與 json 模組自己的訊息。",
+        [("\"schema\": \"rgh-block/1\",", "\"schema\": \"rgh-block/1\"")],
+    ),
+    (
+        "block_settlement_mismatch.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：區塊結算的〈已淘汰〉寫 5，"
+        "生成 12 ≠ 存活 3 ＋ 待確認 3 ＋ 已淘汰 5。算術在區塊裡就對不起來，"
+        "所以查核器不再拿這四個數字去跟散文的列數比對——一個缺陷不該變成三句話，"
+        "其中兩句還會把作者送去改沒有壞的東西（第四節那六列是對的）。",
+        [("\"killed\": 6}", "\"killed\": 5}")],
+    ),
+    (
+        "block_status_unknown.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：A3 的 `status` 寫成列舉值以外的 `unverified`。"
+        "這一欄是預設的**效力**（可不可以當 G3 輸入、要不要有第六節的推翻性檢索列），"
+        "以前要從散文那一行的括號標籤解析出來，換個寫法就整條消失；現在它是一個四值列舉，"
+        "寫錯就是一筆違規，不是靜默降級。",
+        [("\"status\": \"impression\"", "\"status\": \"unverified\"")],
+    ),
+    (
+        "anchor_prose_missing.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：A1 那一句話在散文裡被改了兩個字"
+        "（實際獲得→真正獲得），區塊沒有跟著改。錨點規則就是為了這個而存在——"
+        "區塊是被查者自己寫的，若它可以跟讀者看到的內容不一致，區塊就只是第二個、"
+        "更好編又沒有人會逐字讀的說謊地點。",
+        [("- 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉｜標題層掃描",
+          "- 預設 A1：〈住家周邊的綠地面積可以代表居民真正獲得的綠地暴露〉｜標題層掃描")],
+    ),
+    (
+        "anchor_in_html_comment.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：散文那一行改了字，而**原文被塞進 HTML 註解**裡。"
+        "沒有剝註解的話 containment 找得到那個字串、報告全綠，而讀者在畫面上看到的是另一句話——"
+        "這與先前那個「檔首一行註解假結算搶走對帳」的誘餌是同一個機制，所以剝註解是正規化的"
+        "強制步驟，不是選項。",
+        [("- 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉｜標題層掃描",
+          "- 預設 A1：〈住家周邊的綠地面積可以代表居民真正獲得的綠地暴露〉"
+          "<!-- 住家周邊的綠地面積可以代表居民實際獲得的綠地暴露 -->｜標題層掃描")],
+    ),
+    (
+        "anchor_orphan_assumption.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：散文多寫一條 `預設 A4`，區塊裡沒有這一條。"
+        "containment 只問區塊→散文，所以一條「區塊整個漏掉」的預設會安靜地通過；"
+        "反向覆蓋掃描補的就是這個方向。它的失效方向是假紅燈（一句剛好提到「預設 A9」的"
+        "散文會被要求進區塊），這是刻意選的那一邊。",
         [("- 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕"
           "——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入",
           "- 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕"
           "——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入\n"
-          "- 預設 A1 與 A2 都與量測方式有關，讀的時候要一起看")],
+          "- 預設 A4：〈公園的使用強度可以用停留時間代表〉——本輪沒有替它跑取樣框")],
+    ),
+    (
+        "anchor_line_relocated.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：A1 那**整行**從第一節被搬進候選 1 的"
+        "〈可行性〉段落底下。字一個都沒改，所以「文件裡有沒有這個字串」問不出任何問題——"
+        "區塊的每一個錨點都對得上，而第一節裡已經沒有這一條了。SKILL.md〈rgh-block〉的錨點"
+        "規則寫的是「出現在第一節那條預設行上」，這一份釘的就是那半句：**位置也是錨點的一部分**。"
+        "（重構之前的那棵樹會抓到它，重構之後一度不會——所以它同時是一條回歸樣本。）",
+        [
+            ("drop", "- 預設 A1：〈住家周邊的綠地面積"),
+            ("- **可行性**：需要同時具備到訪紀錄與活動量的資料，使用者手上有兩個行政區的公園使用日誌；"
+             "暴露變項的定義需與公園管理單位對齊一次，估兩週。",
+             "- **可行性**：需要同時具備到訪紀錄與活動量的資料，使用者手上有兩個行政區的公園使用日誌；"
+             "暴露變項的定義需與公園管理單位對齊一次，估兩週。\n"
+             "- 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉｜標題層掃描 24 篇"
+             "（檢索詞 `urban green space physical activity`，limit 24）｜摘要層精讀 8 篇"
+             "（pick 索引 0,2,3,5,7,9,11,14），其中 6 篇沿用此預設｜推翻性檢索 "
+             "`park use versus residential greenness exposure` 回傳 9 篇，讀後 3 篇確實檢驗過此預設｜"
+             "樣本來源：2019–2025，Semantic Scholar ＋ Crossref"),
+        ],
+    ),
+    (
+        "anchor_label_off_line.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：〔印象，未驗證〕從 A3 那一行被拿掉，"
+        "而這一行註記裡還留著〔印象，未驗證〕這幾個字——所以「文件裡有沒有這個標籤」的答案仍然是有，"
+        "只有「它在不在那一條的那一行上」問得出問題。效力是讀者唯一看得到的東西，"
+        "掛在別的地方等於沒掛。",
+        [("- 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕"
+          "——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入",
+          "- 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉"
+          "——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入")],
+    ),
+    (
+        "anchor_label_wrong_status.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：印象級的那個標籤被額外掛到 A1 那一行上，"
+        "而區塊說 A1 的 `status` 是 `framed`。這是錨點的**反面**：該有的要有，不該有的不能有。"
+        "少了反面，把標籤從一條撕下來貼到另一條上只會被說中一半，而讀者眼前的兩條都被讀錯了。",
+        [("- 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉｜標題層掃描",
+          "- 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉〔印象，未驗證〕｜標題層掃描")],
+    ),
+    (
+        "fenced_assumption_line.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：A3 那一行被包進一個 ```text 圍欄裡。"
+        "字沒動、位置也還在第一節，所以每一個錨點照樣對得上——壞掉的是**那一行變成了程式碼**："
+        "讀者看到的是一塊 code block，不是報告內容。圍欄是「兩邊都不算」的區域"
+        "（查核器不保證讀它、讀者不當它是內容），而兩邊都不算的區域什麼都裝得下。",
+        [("- 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕"
+          "——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入",
+          "```text\n"
+          "- 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕"
+          "——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入\n"
+          "```")],
+    ),
+    (
+        "tilde_fenced_assumption_line.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：A3 那一行被包進 `~~~` 圍欄裡——"
+        "與 fenced_assumption_line.md 同一個缺陷，換一個圍欄符號。`find_fenced_blocks` "
+        "只認反引號是刻意的（BLOCK-01 的「整份恰好一個」不能因為換符號就被繞開），"
+        "但結構掃描問的是另一個問題：**讀者看到的是不是程式碼**，而 `~~~` 在畫面上與 ``` "
+        "一模一樣。只認一種就是留一個一字元的繞道，而那正是這條規則存在要擋的東西。",
+        [("- 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕"
+          "——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入",
+          "~~~\n"
+          "- 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕"
+          "——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入\n"
+          "~~~")],
+    ),
+    (
+        "block_fullwidth_id.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：A3 的 `id` 用全形數字寫成 `A３`。"
+        "`\\d` 在 Python 3 比對整個 Unicode Nd 類別，所以形狀測試以前是通過的；"
+        "接著 NFKC 讓錨點那一側對上散文的 `預設 A3`，而每一個原字串比對（反向覆蓋、"
+        "G3 的 by_id 查表、第六節的互鎖標籤）全部落空——三筆 finding 指著三行沒有壞的東西，"
+        "沒有一句提到那位數字。這一份釘的是「訊息要落在壞掉的那個東西上」。",
+        [("{\"id\": \"A3\", \"status\": \"impression\"",
+          "{\"id\": \"A３\", \"status\": \"impression\"")],
     ),
     (
         "no_tool_tier.md",
@@ -120,21 +255,18 @@ FIXTURES_SPEC = [
     ),
     (
         "count_mismatch.md",
-        "相對於 good_report.md，本檔刻意壞掉一處：第二節標題宣告存活 4 個，實際只寫了 3 個候選區塊。",
-        [("## 二、存活候選（生成 12 個 → 存活 3 個）",
-          "## 二、存活候選（生成 12 個 → 存活 4 個）")],
-    ),
-    (
-        "count_inverted.md",
-        "相對於 good_report.md，本檔刻意壞掉一處：第二節標題寫成生成 2 個卻存活 3 個，算術上不可能。",
-        [("## 二、存活候選（生成 12 個 → 存活 3 個）",
-          "## 二、存活候選（生成 2 個 → 存活 3 個）")],
+        "相對於 good_report.md，本檔刻意壞掉一處：候選 3（C03）的整個區塊從第二節不見了，"
+        "區塊的結算仍寫存活 3。**兩個數字現在來自不同的地方**——一個是區塊自己宣告的，"
+        "一個是散文裡真的寫出來的——所以這是一次真的交叉比對；以前兩邊都讀同一份散文"
+        "（第二節標題那一行），而那一行還是「全文第一個 match」找到的。",
+        [("drop_range", "### 候選 3（C03）：", "## 三、待確認")],
     ),
     (
         "recon_mismatch.md",
-        "相對於 good_report.md，本檔刻意壞掉一處：表頭的候選結算把待確認寫成 4，與第三節的 3 列對不起來，總數也不等於生成數。",
-        [("**候選結算**：生成 12 ＝ 存活 3 ＋ 待確認 3 ＋ 已淘汰 6",
-          "**候選結算**：生成 12 ＝ 存活 3 ＋ 待確認 4 ＋ 已淘汰 6")],
+        "相對於 good_report.md，本檔刻意壞掉一處：第三節的 C06 那一列被刪掉，"
+        "區塊結算仍寫待確認 3。候選在生成到報告之間安靜消失，是第三節存在的全部理由；"
+        "少了這條對帳，第三節就只是換一個藏身處。",
+        [("drop", "| C06 現行公園品質評估量表")],
     ),
     (
         "bad_verdict.md",
@@ -148,19 +280,18 @@ FIXTURES_SPEC = [
     ),
     (
         "assumption_no_frame.md",
-        "相對於 good_report.md，本檔刻意壞掉一處：預設 A2 少了摘要層精讀那一段取樣框，量化預設變成無法追溯的數字。",
-        [("｜摘要層精讀 5 篇（pick 索引 1,4,6,8,12），其中 4 篇沿用此預設", "")],
+        "相對於 good_report.md，本檔刻意壞掉一處：區塊裡 A2 的取樣框少了 `Mp` 這個欄位。"
+        "十欄缺一不可——五個數字現在是十個具名欄位，缺哪一個 schema 直接說得出來，"
+        "而不是靠「這一行有沒有出現『摘要層精讀 N 篇』這幾個字」去推。"
+        "（缺了 Mp，`len(pick) == Mp` 與 `M ≤ Mp` 兩道算術一併跳過：一個缺陷一句話。）",
+        [("\"Mp\": 5, ", "")],
     ),
     (
         "impression_as_g3.md",
-        "相對於 good_report.md，本檔刻意壞掉一處：預設 A1 降級為〔印象，未驗證〕，但候選 1 仍拿它當 G3 的輸入。",
-        [("- 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉｜標題層掃描 24 篇"
-          "（檢索詞 `urban green space physical activity`，limit 24）｜摘要層精讀 8 篇"
-          "（pick 索引 0,2,3,5,7,9,11,14），其中 6 篇沿用此預設｜推翻性檢索 "
-          "`park use versus residential greenness exposure` 回傳 9 篇，讀後 3 篇確實檢驗過此預設"
-          "｜樣本來源：2019–2025，Semantic Scholar ＋ Crossref",
-          "- 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉〔印象，未驗證〕"
-          "——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入")],
+        "相對於 good_report.md，本檔刻意壞掉一處：候選 1 的 G3 改成反轉 A3，"
+        "而 A3 在區塊裡的 `status` 是 `impression`。印象級預設不得長出候選——"
+        "以前這個判斷要從散文那一行的〔印象，未驗證〕標籤解析出來，現在直接讀列舉值。",
+        [("- **缺口類型**：G3 預設反轉（反轉 A1）", "- **缺口類型**：G3 預設反轉（反轉 A3）")],
     ),
     (
         "missing_evidence_field.md",
@@ -222,6 +353,15 @@ FIXTURES_SPEC = [
         [("drop", "| C03 | ")],
     ),
     (
+        "assumption_untraced.md",
+        "相對於 good_report.md，本檔刻意壞掉一處：第六節標成 `第1步-推翻A1` 的那一列被刪掉，"
+        "而區塊裡 A1 的 `status` 仍是 `framed`。互鎖的**豁免與否現在由 status 決定**："
+        "framed／inherited_framed 付過檢索成本、要拿得出那一列，impression／inherited 沒付過、免附。"
+        "豁免的理由一個字都沒變，變的只是判斷依據——以前要從那一行的括號標籤讀出它是哪一種。"
+        "這一份釘的是 TRACE-01 的**預設臂**；沒有它，那條互鎖就是一句沒有樣本驗過的話。",
+        [("drop", "| 3 | 第1步-推翻A1 |")],
+    ),
+    (
         "trace_placeholder_query.md",
         "相對於 good_report.md，本檔刻意壞掉一處：〈檢索紀錄〉第 5 列的查詢詞是「（略）」。",
         [("| 5 | C01 | `green space exposure measurement physical activity` | 12 |",
@@ -263,27 +403,6 @@ FIXTURES_SPEC = [
         "本檔相對 good_report.md 只改一處，且**應該是綠的**：待確認表用了 SKILL.md 的括號態寫法〔待驗證〕加補充語，查核器必須看懂括號內才是狀態值。",
         [("| C05 以穿戴裝置的 GPS 軌跡切出居民在公園內的活動片段 | UNSEARCHABLE |",
           "| C05 以穿戴裝置的 GPS 軌跡切出居民在公園內的活動片段 | 〔待驗證〕**不列入存活** |")],
-    ),
-    (
-        "assumption_unreadable_line.md",
-        "相對於 good_report.md，本檔刻意壞掉一處：預設 A3 的括號標籤後面直接接內文、沒有冒號，"
-        "整行因此讀不出來。以前這種行是靜默丟掉的——那一條既不被算進去也不被檢查，報告照樣綠；"
-        "現在它必須自己說出「我讀不到這一行」。",
-        [("- 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入",
-          "- 預設 A3〔印象，未驗證〕〈居民願意步行前往公園的距離上限大約是 500 公尺〉——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入")],
-    ),
-    (
-        "assumption_em_dash_separator.md",
-        "相對於 good_report.md，本檔刻意壞掉一處：預設 A2 的分隔符寫成破折號"
-        "（`- 預設 A2——〈…〉｜標題層掃描 …`），落在 ASSUM_LINE_RE 收的字元類"
-        "（：／:／｜／|）之外。這一份釘的是 lookalike 樣式的**另一個方向**："
-        "上一輪為了放過散文而加的結構字元 lookahead，讓這一行同時對兩個樣式隱形。"
-        "壞在 A2 而不是 A1 是刻意的——A1 被 C01 拿去做 G3 反轉，讀不到它至少還會掉出一句"
-        "「G3 候選指到第一節沒有的預設 A1」（誤導，但不是綠燈）；A2 沒有任何候選指著它，"
-        "所以那個 lookahead 一加回去，這一份就是預設 3→2、unreadable 0、離開碼 0、"
-        "零筆 finding——一個徹底安靜的假綠燈，也就是這條規則存在的全部理由。",
-        [("- 預設 A2：〈自陳問卷測得的身體活動量足以取代加速規的客觀量測〉",
-          "- 預設 A2——〈自陳問卷測得的身體活動量足以取代加速規的客觀量測〉")],
     ),
     (
         "candidate_head_unreadable.md",
@@ -411,6 +530,26 @@ LAND_FIXTURES_SPEC = [
         [("drop_section", "## 一、一眼表")],
     ),
     (
+        "landscape_stray_block.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：報告最後多了一個 `json rgh-block` 區塊"
+        "（把缺口報告的樣板整段貼過來最容易產生這一種）。SKILL.md〈rgh-block〉寫著地形報告"
+        "不寫區塊，所以**沒有任何規則會驗它**——LandscapeChecker 沒有 check_block，也不該有。"
+        "以前這裡是三件事一起發生：不被驗證、被剝出散文、於是連 LANG-01 與 LVOCAB-01 都掃不到它，"
+        "一個地形報告可以在圍欄裡寫下缺口獵捕才有的判定詞彙而全綠。剝除現在只發生在缺口報告，"
+        "而區塊本身在這裡是一筆違規。",
+        [("| W4 | 個人層次的暴露，可以由這個人自己的紀錄或回憶還原 | F4-a、F5-a | 2 | 歷史偶然 | "
+          "拆掉之後要改用不倚賴當事人的來源（定點計數、現地觀察），代價是失去個人層次的連結；"
+          "不方便的是需要把暴露接到個人健康結果的研究 |",
+          "| W4 | 個人層次的暴露，可以由這個人自己的紀錄或回憶還原 | F4-a、F5-a | 2 | 歷史偶然 | "
+          "拆掉之後要改用不倚賴當事人的來源（定點計數、現地觀察），代價是失去個人層次的連結；"
+          "不方便的是需要把暴露接到個人健康結果的研究 |\n"
+          "\n"
+          "```json rgh-block\n"
+          "{\"schema\": \"rgh-block/1\", \"settlement\": {\"generated\": 0, \"survived\": 0, "
+          "\"pending\": 0, \"killed\": 0}, \"assumptions\": []}\n"
+          "```")],
+    ),
+    (
         "landscape_section_renamed.md",
         "相對於 good_landscape.md，本檔刻意壞掉一處：〈一、一眼表〉被改名成〈一、總覽表〉。"
         "以前 classify_landscape_section 要求標題含「一眼」，改名之後整張表的每一列消失，"
@@ -441,38 +580,38 @@ INHERIT_FIXTURES_SPEC = [
     ),
     (
         "inherited_framed_partial.md",
-        "相對於 good_inherited_report.md，本檔刻意壞掉一處：A3 標了〔已補取樣框〕，"
-        "摘要層精讀那一段卻不見了——補框宣稱了就要跟本輪量化的預設同標準。",
-        [("｜摘要層精讀 6 篇（pick 索引 0,1,3,5,8,11），其中 5 篇沿用此預設", "")],
+        "相對於 good_inherited_report.md，本檔刻意壞掉一處：區塊裡 A3 的 `status` 仍是 "
+        "`inherited_framed`，取樣框卻少了 `K`。補框一旦宣稱出去，就與本輪量化的預設同標準；"
+        "退路是把 status 改回 `inherited`（效力同印象級、不得當 G3 輸入），"
+        "**不是**改寫成印象級——效力相同、來源不同，讀者要看得出這一條是別份報告帶進來的。",
+        [("\"Kp\": 11, \"K\": 4, ", "\"Kp\": 11, ")],
     ),
     (
         "assumption_blockquote_ok.md",
         "本檔相對 good_inherited_report.md 只改一處，且**應該是綠的**：A3 改寫成 SKILL.md 第 1 步"
-        "**自己用來展示這個格式的那個形狀**——引用區塊（`> `）開頭。綠燈在這裡是有內容的："
-        "A3 正是 C02 反轉的那一條，這一行若沒被讀進來，ASSUM-02 會說「G3 候選指到第一節沒有的預設 A3」；"
-        "只讀到一半（漏掉〔已補取樣框〕）則會說它未補框。所以綠燈同時證明了讀到、而且分類正確。",
+        "**自己用來展示這個格式的那個形狀**——引用區塊（`> `）開頭。它現在釘的是一句更強的話："
+        "**預設行的形狀不再決定任何一條規則的適用性**。A3 是 C02 反轉的那一條，"
+        "而它的效力、取樣框、與第六節的互鎖全部從區塊讀，散文那一行只被問「那句話在不在」——"
+        "換成引用區塊、換成破折號、甚至寫成「前提 A3」，該有的數字都逃不掉。",
         [("- 預設 A3〔承接自地形 W3，已補取樣框〕：",
           "> 預設 A3〔承接自地形 W3，已補取樣框〕：")],
     ),
+]
+
+
+# 偵察模式報告的衍生樣本。這一份釘的是那條豁免的**第一個條件**：
+# 空預設清單只有在報告逐字宣告自己是偵察抽樣時才是誠實的。第二個條件
+# （結算的存活與已淘汰都是 0）沒辦法用一次替換表達，改由 self_test.py 就地構造。
+RECON_FIXTURES_SPEC = [
     (
-        "assumption_two_brackets_ok.md",
-        "本檔相對 good_inherited_report.md 只改一處，且**應該是綠的**：A3 的來源標籤與補框標籤"
-        "寫成兩個相鄰的括號（`〔承接自地形 W3〕〔已補取樣框〕`）——補框之後最自然的寫法。"
-        "以前解析器只吃一個括號，第二個括號連同整行一起消失；A3 是 C02 的 G3 輸入，"
-        "所以少讀一個括號就會退化成「這一條不存在」或「這一條沒補框」。",
-        [("- 預設 A3〔承接自地形 W3，已補取樣框〕：",
-          "- 預設 A3〔承接自地形 W3〕〔已補取樣框〕：")],
-    ),
-    (
-        "assumption_fullwidth_bracket_ok.md",
-        "本檔相對 good_inherited_report.md 只改一處，且**應該是綠的**：A3 的來源標籤改用"
-        "全形方括號 ［］。evals/README.md 逐字承諾標籤括號可以是 〔〕／【】／［］／（），"
-        "而全形 ［（U+FF3B）與半形 [（U+005B）是不同的字元——樣式裡只有半形那一個，"
-        "於是一份**照著本 repo 自己的文件**寫的報告會被判違規。這是假紅燈，"
-        "而且 doc_scan.py 看不到它（它從不把文件的承諾拿去比對一個字元類的內容）。"
-        "A3 正是 C02 反轉的那一條，所以少讀這一對括號會直接變成 ASSUM-02「指到第一節沒有的預設」。",
-        [("- 預設 A3〔承接自地形 W3，已補取樣框〕：",
-          "- 預設 A3［承接自地形 W3，已補取樣框］：")],
+        "recon_undeclared_empty.md",
+        "相對於 good_recon_report.md，本檔刻意壞掉一處：表頭〈模式〉從「偵察抽樣（非新穎性判定）」"
+        "改回「完整獵擊」以外的一般宣告，區塊卻仍然交出 `\"assumptions\": []`。"
+        "一份完整獵捕的報告交出空預設清單，就是宣稱 SKILL.md 第 1 步整步沒跑——"
+        "而第 1 步是後面每一個 G3 的唯一原料，也是這個流程最貴的一步。"
+        "以前沒有任何規則看得到這件事：STRUCT-01 只要求二／三／四／六四個區段，"
+        "於是「跳過第一步」長得跟通過一模一樣。",
+        [("**模式**：偵察抽樣（非新穎性判定）", "**模式**：完整獵捕")],
     ),
 ]
 
@@ -483,6 +622,7 @@ def derived_bases():
     out["narrative_wrapper.md"] = os.path.basename(BASE)
     out.update((name, os.path.basename(LAND_BASE)) for name, _n, _e in LAND_FIXTURES_SPEC)
     out.update((name, os.path.basename(INHERIT_BASE)) for name, _n, _e in INHERIT_FIXTURES_SPEC)
+    out.update((name, os.path.basename(RECON_BASE)) for name, _n, _e in RECON_FIXTURES_SPEC)
     return out
 
 
@@ -491,9 +631,40 @@ def load_base(path=BASE):
         return fh.read()
 
 
+BLOCK_FENCE = "```json rgh-block"
+
+
+def _block_span(lines):
+    """rgh-block 在 lines 裡的 [起, 迄]（含圍欄兩行，0-based）。"""
+    starts = [i for i, ln in enumerate(lines) if ln.strip() == BLOCK_FENCE]
+    if len(starts) != 1:
+        raise SystemExit("基準樣本裡的 rgh-block 不是恰好一個（%d 個）" % len(starts))
+    s = starts[0]
+    e = next((i for i in range(s + 1, len(lines)) if lines[i].strip() == "```"), None)
+    if e is None:
+        raise SystemExit("rgh-block 沒有收尾的圍欄")
+    return s, e
+
+
 def build(base, note, edits):
     text = base
     for edit in edits:
+        if edit[0] == "drop_block":
+            # 整個 rgh-block 連同它前面那一行空白一起刪掉。刪行不會產生新的行，
+            # 所以「衍生樣本只能比基準多兩行」那條檢查照樣成立。
+            lines = text.splitlines()
+            s, e = _block_span(lines)
+            head = lines[:s - 1] if s > 0 and not lines[s - 1].strip() else lines[:s]
+            text = "\n".join(head + lines[e + 1:]) + "\n"
+            continue
+        if edit[0] == "dup_block":
+            # 同一個區塊再貼一份。複製出來的每一行都與基準的某一行逐字相同，
+            # 所以單一維度檢查看到的「新行」是 0——這一份壞的只有「數量」這個維度。
+            lines = text.splitlines()
+            s, e = _block_span(lines)
+            copy = lines[s:e + 1]
+            text = "\n".join(lines[:e + 1] + [""] + copy + lines[e + 1:]) + "\n"
+            continue
         if edit[0] == "drop_range":
             # 從某一行刪到某一行之前（不含）。用來刪掉「一整張表」而保留它的節標題。
             _k, start_needle, stop_needle = edit
@@ -555,6 +726,9 @@ def main():
     inherit_base = load_base(INHERIT_BASE)
     outputs += [(name, build(inherit_base, note, edits))
                 for name, note, edits in INHERIT_FIXTURES_SPEC]
+    recon_base = load_base(RECON_BASE)
+    outputs += [(name, build(recon_base, note, edits))
+                for name, note, edits in RECON_FIXTURES_SPEC]
 
     diffs = []
     for name, text in outputs:
@@ -579,13 +753,13 @@ def main():
         print("✅ %d 個衍生樣本與生成器一致。" % len(outputs))
         return 0
 
-    print("已由 %s／%s／%s 生成 %d 個衍生樣本："
+    print("已由 %s／%s／%s／%s 生成 %d 個衍生樣本："
           % (os.path.basename(BASE), os.path.basename(LAND_BASE),
-             os.path.basename(INHERIT_BASE), len(outputs)))
+             os.path.basename(INHERIT_BASE), os.path.basename(RECON_BASE), len(outputs)))
     for name, _t in outputs:
         print("  %s" % name)
     print("（good_report.md、good_nosearch_report.md、chinese_index_na.md、good_landscape.md、"
-          "good_inherited_report.md 是手寫基準，未被覆寫）")
+          "good_inherited_report.md、good_recon_report.md 是手寫基準，未被覆寫）")
     return 0
 
 

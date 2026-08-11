@@ -9,7 +9,7 @@
 
 > 本檔是 evals 用的合成樣本。文中所有文獻皆為虛構（Author A、Author B……），
 > 識別碼使用 Crossref 測試前綴 10.5555，不對應任何真實出版品。
-> 相對於 good_report.md，本檔刻意壞掉一處：C07 的淘汰列〈判定〉欄留空。以前空判定是直接跳過的，於是 KILL-01／02／03 與 ID-01 全部沒有對象——一列沒有判定的淘汰，整列不受檢查而報告是綠的。
+> 相對於 good_report.md，本檔刻意壞掉一處：第六節標成 `第1步-推翻A1` 的那一列被刪掉，而區塊裡 A1 的 `status` 仍是 `framed`。互鎖的**豁免與否現在由 status 決定**：framed／inherited_framed 付過檢索成本、要拿得出那一列，impression／inherited 沒付過、免附。豁免的理由一個字都沒變，變的只是判斷依據——以前要從那一行的括號標籤讀出它是哪一種。這一份釘的是 TRACE-01 的**預設臂**；沒有它，那條互鎖就是一句沒有樣本驗過的話。
 
 ## 一、領域共識與未被質疑的預設
 
@@ -66,7 +66,7 @@
 
 | 候選 | 判定 | 淘汰原因 | 關鍵文獻 | 識別碼 | 發表型態 | 撤稿檢查 |
 |---|---|---|---|---|---|---|
-| C07 以住家到最近公園的距離預測居民身體活動量 |  | 摘要逐字引句：「Using distance from home to the nearest public park, we find that each additional 100 metres is associated with 3.4 fewer minutes of weekly moderate-to-vigorous physical activity among 5,200 urban adults.」母體、自變項、結果變項、研究設計四項全中。 | Author D et al. (2024) | DOI:10.5555/synthetic-0003 | 期刊 | 已查，Crossref 無記錄 |
+| C07 以住家到最近公園的距離預測居民身體活動量 | DONE | 摘要逐字引句：「Using distance from home to the nearest public park, we find that each additional 100 metres is associated with 3.4 fewer minutes of weekly moderate-to-vigorous physical activity among 5,200 urban adults.」母體、自變項、結果變項、研究設計四項全中。 | Author D et al. (2024) | DOI:10.5555/synthetic-0003 | 期刊 | 已查，Crossref 無記錄 |
 | C08 以公園設施稽核評分預測公園使用人次 | DONE | 摘要逐字引句：「A facility audit score explains 46 percent of the variance in observed visitor counts across 168 neighbourhood parks.」母體與結果變項與本候選相同，研究設計同為橫斷面稽核。 | Author N et al. (2023) | DOI:10.5555/synthetic-0013 | 會議 | 已查，Crossref 無記錄 |
 | C09 比較自陳與加速規測得的公園內身體活動量 | DONE | 摘要逐字引句：「We compare self-reported and accelerometer-measured park-based activity in the same participants and find no agreement beyond chance for sessions shorter than ten minutes.」四項對齊，含同樣的比較設計。 | Author O et al. (2024) | DOI:10.5555/synthetic-0014 | 期刊 | 已查，Crossref 無記錄 |
 | C10 建立綠地暴露與身體活動的劑量—反應曲線 | CROWDED | 三篇分別涵蓋本候選的三個子問題：暴露的量化方式（Author E）、劑量—反應函數的形狀（Author F）、跨城市泛化（Author G）；逐一比對後沒有剩餘的未涵蓋子問題，故非 ADJACENT。 | Author E et al. (2022)；Author F et al. (2023)；Author G et al. (2024) | DOI:10.5555/synthetic-0004；DOI:10.5555/synthetic-0005；DOI:10.5555/synthetic-0006 | 期刊、會議、期刊 | 已查，Crossref 無記錄 |
@@ -89,7 +89,6 @@
 |---|---|---|---|---|
 | 1 | 第1步-共識 | `urban green space physical activity` | 24 | Residential green space exposure and adult physical activity；Greenness metrics and moderate-to-vigorous activity；A survey of green space exposure metrics |
 | 2 | 第1步-共識 | `self-report accelerometer physical activity agreement` | 31 | Self-report and device-based measures of activity；Validity of physical activity questionnaires；Agreement between accelerometer and recall |
-| 3 | 第1步-推翻A1 | `park use versus residential greenness exposure` | 9 | Does proximity imply use；Access, use and the exposure gap；What greenness buffers actually capture |
 | 4 | 第1步-推翻A2 | `measurement error self-reported physical activity` | 12 | Measurement error in activity recall；Social desirability in health surveys；Correcting bias in self-reported activity |
 | 5 | C01 | `green space exposure measurement physical activity` | 12 | Residential greenness and moderate-to-vigorous physical activity in adults；Exposure definitions in green space research；Comparing greenness and use-based exposure |
 | 6 | C01 | `park visitation frequency accelerometer physical activity` | 9 | Park visits and device-measured activity；Visit frequency as an exposure variable；Time spent in parks and activity minutes |

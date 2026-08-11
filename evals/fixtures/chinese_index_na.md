@@ -101,3 +101,15 @@
 retract: 10.5555/synthetic-0101 10.5555/synthetic-0102 10.5555/synthetic-0103 10.5555/synthetic-0104 10.5555/synthetic-0105 10.5555/synthetic-0106 10.5555/synthetic-0107 10.5555/synthetic-0108 10.5555/synthetic-0109
 check:   （本報告全部引用文獻）
 ```
+
+```json rgh-block
+{
+"schema": "rgh-block/1",
+"settlement": {"generated": 7, "survived": 2, "pending": 2, "killed": 3},
+"assumptions": [
+{"id": "A1", "status": "framed", "anchor": "特徵的身分可以用字典向量的餘弦相似度跨檢查點對應", "frame": {"N": 22, "query": "sparse autoencoder feature identity checkpoint", "limit": 22, "Mp": 7, "pick": [0,1,3,5,8,10,13], "M": 5, "refute_query": "feature matching instability across training checkpoints", "Kp": 11, "K": 3, "sample": "2021–2026，Semantic Scholar ＋ Crossref"}},
+{"id": "A2", "status": "framed", "anchor": "可解釋性標註的評分者間信度足夠高，不必另行報告", "frame": {"N": 18, "query": "interpretability annotation rater agreement feature", "limit": 18, "Mp": 6, "pick": [0,2,4,7,9,11], "M": 4, "refute_query": "inter-rater reliability interpretability ratings", "Kp": 9, "K": 2, "sample": "2021–2026，Semantic Scholar"}},
+{"id": "A3", "status": "impression", "anchor": "微調只會加上新特徵，不會拆散既有特徵", "frame": null}
+]
+}
+```

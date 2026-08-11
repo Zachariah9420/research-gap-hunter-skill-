@@ -19,6 +19,24 @@
 它讓作者以為跑過了）。節名本身**不得改寫**（SKILL.md〈輸出格式〉），
 所以改寫過的節名是它自己的一條違規（SECT-01），不是停止檢查的理由。
 
+**兩塊東西不從散文讀，改從報告最後的 `rgh-block` 結構化區塊讀**：第一節的預設清單、
+與表頭的候選結算四個數字。理由是四輪對抗測試的結果——用正規表達式解析散文，要同時做到
+「寬容」（SKILL.md 是散文，模型的措辭會漂）與「絕不靜默」（丟掉一行就是假綠燈）是矛盾的，
+每一次修補都只是**移動**那條界線。所以這兩塊改成：
+
+  - **EXACT**：區塊是 JSON，形狀由 schema 強制，壞掉一定大聲（`BLOCK-01`／`ASSUM-01`）。
+    結構化資料沒有「寬容」的問題，因為 JSON 沒有形狀變體。
+  - **CONTAINMENT**：對散文只問「這個字串有沒有出現」（`ANCHOR-01`）。這個問題**不可能
+    靜默丟東西**——答案只有出現或沒出現，而沒出現就是一筆 finding。
+
+區塊裡每一個有散文對應物的欄位都自帶一段**必須逐字出現在散文裡的錨點字串**；區塊因此不是
+散文的平行摘要，而是指著散文的索引。containment 的比對跑在**剝掉 HTML 註解之後**的文字上：
+少了這一步，藏在註解裡的誘餌就能滿足 containment，而讀者看到的是另一回事。
+
+**這把信任的界線往前移，不是把它移走。** 寫區塊的和寫散文的是同一個模型：一份區塊完全合法、
+數字全是編的報告，照樣離開碼 0。錨點出現在否定語境裡（「本研究不採此立場」）也抓不到——
+containment 在定義上看不見否定。
+
 它檢查的是**形式**，不是**真假**：
   - 它能抓到「這個 DONE 沒有指名殺死候選的文獻」；
   - 它抓不到「這篇被指名的文獻其實不存在，或講的是別的事」。
@@ -46,6 +64,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -76,6 +95,58 @@ ALLOWED_VERDICTS = SURVIVOR_VERDICTS | KILL_VERDICTS | PENDING_STATES
 
 
 # --------------------------------------------------------------------------
+# rgh-block：報告最後的結構化區塊（SKILL.md〈第 5 步〉的〈rgh-block〉小節）
+#
+# 只裝兩樣東西：第一節的預設清單、與候選結算的四個數字。其餘一切留在散文，
+# 查法一個字都沒變。裝什麼進來的判準是**經濟性**：需要被「算」的（計數、對帳、
+# 列舉值、數字大小關係）才進區塊；只需要「有沒有寫」的留在散文，因為那是 containment。
+# --------------------------------------------------------------------------
+
+# 圍欄的 info string，**逐字**。用 info string 而不是 HTML 註解，因為註解在
+# containment 正規化階段會被剝掉，而區塊必須先被抽出、再被剝除。
+BLOCK_FENCE_INFO = "json rgh-block"
+BLOCK_SCHEMA_VERSION = "rgh-block/1"
+
+# 頂層恰好三個鍵，不多不少
+BLOCK_TOP_KEYS = ("schema", "settlement", "assumptions")
+SETTLEMENT_KEYS = ("generated", "survived", "pending", "killed")
+
+# 預設的四種效力。**這是這次重構的核心**：預設的身分從此是一個 JSON 列舉值，
+# 不是「預設」那兩個字加一個分隔符——換個寫法（`前提 A1`、引用區塊、破折號分隔）
+# 不再讓它從查核裡消失，只會讓它變成一筆違規。
+ASSUM_STATUS_VALUES = ("framed", "impression", "inherited", "inherited_framed")
+ASSUM_ENTRY_KEYS = ("id", "status", "anchor", "frame", "wall", "families")
+# 取樣框十欄，缺一不可、多一個也不行
+FRAME_FIELDS = ("N", "query", "limit", "Mp", "pick", "M", "refute_query", "Kp", "K", "sample")
+
+# 編號的形狀。**`[0-9]` 不是 `\d`**：`\d` 在 Python 3 比對整個 Unicode Nd 類別，
+# 於是 `{"id": "A１"}`（全形一）通過形狀測試，NFKC 之後錨點又剛好對上散文的 `預設 A1`，
+# 而每一個**原字串**比對（反向覆蓋、G3 的 by_id 查表、TRACE-01 的互鎖標籤）全部落空。
+# 結果是三筆 finding 指著三行沒有壞的東西，沒有一句提到那個編號。編號是對帳的鍵，
+# 鍵就要是逐位元組相同的東西。
+BLOCK_AID_RE = re.compile(r"^A[0-9]{1,3}$")
+BLOCK_WALL_RE = re.compile(r"^W[0-9]{1,3}$")
+BLOCK_FAMILY_RE = re.compile(r"^F[0-9]{1,2}$")
+
+# 反引號圍欄。只認反引號、不認 `~~~`——一個被 `~~~` 包起來當範例展示的區塊，
+# 對本檔仍然是「第二個區塊」，而那正是要它變成 BLOCK-01 的那一類（誘餌）。
+FENCE_OPEN_RE = re.compile(r"^\s{0,3}(`{3,})\s*([^`]*?)\s*$")
+
+# 結構掃描用的圍欄樣式：反引號與波浪號都認。與上面那一條的差別是**問題不同**——
+# 上面問「這是不是那個區塊」（只有一種寫法算），這裡問「這一塊在讀者眼裡是不是程式碼」
+# （兩種寫法看起來一樣，所以兩種都算）。見 _find_fences_for_scan。
+FENCE_SCAN_OPEN_RE = re.compile(r"^\s{0,3}((?:`{3,})|(?:~{3,}))\s*([^`]*?)\s*$")
+
+# HTML 註解（含跨行）。containment 與禁語掃描都跑在剝掉它之後的文字上。
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+
+# 散文裡的預設編號 token。**這不是解析預設行**——它只回答「這一行有沒有提到
+# 預設 A<n>」，用在兩個地方：反向覆蓋掃描（散文寫了、區塊沒有），以及第一節的
+# 形狀定位。失效方向是假紅燈（一句剛好提到預設 A1 的散文會被算進去），這是刻意的。
+PROSE_AID_RE = re.compile(r"預設\s*[Aa](\d{1,3})")
+
+
+# --------------------------------------------------------------------------
 # 領域地形報告（landscape）：另一種文件形狀，另一套規則
 #
 # 這一份不判新穎性、不淘汰，所以缺口報告那 21 條裡有 19 條在它身上沒有對象。
@@ -86,6 +157,11 @@ ALLOWED_VERDICTS = SURVIVOR_VERDICTS | KILL_VERDICTS | PENDING_STATES
 LANDSCAPE_H1_RE = re.compile(r"^#\s*領域地形報告")
 GAP_H1_RE = re.compile(r"^#\s*研究缺口報告")
 LANDSCAPE_MODE_RE = re.compile(r"^模式\s*[：:]\s*領域地形")
+
+# 偵察模式（SKILL.md〈偵察模式〉）。表頭〈模式〉逐字寫「偵察抽樣（非新穎性判定）」，
+# 它是**唯一**可以交出空預設清單的缺口報告：那一種明講自己沒有跑第 1 步。
+# 這條豁免不是一句宣告就能買到的——見 Checker._recon_declared()。
+RECON_MODE_RE = re.compile(r"^模式\s*[：:]\s*偵察抽樣")
 
 # 表頭那一行是固定句，逐字比對（SKILL.md〈landscape 輸出格式〉）
 LANDSCAPE_DISCLAIMER_LABEL = "這份報告不做什麼"
@@ -234,32 +310,12 @@ YEAR_RE = re.compile(r"[（(]\s*(?:19|20)\d{2}[a-z]?\s*[)）]")
 
 QUOTE_RE = re.compile(r"「([^」]{8,})」|『([^』]{8,})』|“([^”]{8,})”|\"([^\"]{8,})\"")
 
-# 標籤括號的四對。evals/README.md 對外承諾 〔〕／【】／［］／（） 都收，而全形
-# ［］（U+FF3B/U+FF3D）跟半形 [] 是不同的字元——少收那一對，一份**照著本 repo
-# 自己的文件**寫的報告會被判違規。那是假紅燈，而假紅燈跟假綠燈一樣是查核器的錯：
-# 它把作者送去改一個沒有壞的東西。寫成常數是為了「一改改全部」——以前每個樣式
-# 各自抄一份字元類，補好其中一份不會讓其他份跟著補好，doc_scan 也看不到字元類裡少了什麼。
-BRA_OPEN = r"〔【\[［（"
-BRA_CLOSE = r"〕】\]］）"
-
 # 反引號／引號包住的字串，或連續兩個以上的拉丁詞——都算「具體查詢詞」
 BACKTICK_RE = re.compile(r"`([^`]{3,})`")
 QUOTED_ANY_RE = re.compile(r"「([^」]{3,})」|『([^』]{3,})』|“([^”]{3,})”|\"([^\"]{3,})\"")
 LATIN_PHRASE_RE = re.compile(
     r"[A-Za-z][A-Za-z0-9\-\+\*/\.]{1,}(?:\s+[A-Za-z0-9][A-Za-z0-9\-\+\*/\.]{1,}){1,}"
 )
-
-COUNT_RE = re.compile(
-    r"(?:生成|產生|共生成|共產生)\s*(\d+)\s*個?\s*(?:→|->|➜|=>|—>|~>|至|到)\s*"
-    r"(?:存活|倖存|留下)\s*(\d+)\s*個?"
-)
-
-# 表頭的候選結算行：生成 N ＝ 存活 M ＋ 待確認 P ＋ 已淘汰 Q（半形 = + 也接受）
-SETTLE_RE = re.compile(
-    r"生成\s*(\d+)\s*個?\s*[＝=]\s*存活\s*(\d+)\s*個?\s*[＋+]\s*"
-    r"待確認\s*(\d+)\s*個?\s*[＋+]\s*已淘汰\s*(\d+)\s*個?"
-)
-SETTLE_LABEL_RE = re.compile(r"候選結算")
 
 NO_SEARCH_RE = re.compile(r"本次未執行任何檢索|無法執行淘汰步驟|本次無檢索工具")
 
@@ -286,10 +342,10 @@ BLOCK_END_RE = re.compile(r"<!--\s*format-check\s*:\s*report-end\s*-->", re.I)
 # 否則一份照著規格寫的報告會被查核器判成「這一條不存在」，而那是最壞的一種錯誤訊息：
 # 它把讀者送去找一個不存在的缺漏。
 #
-# 這一段的三個常數是所有「行級」解析共用的，改一個地方就好；以前欄位行、預設行、
-# 標題行各自寫死一份前綴，於是修好其中一種形狀不會讓另外兩種跟著修好。
+# 這個常數是所有「行級」解析共用的，改一個地方就好；以前欄位行、預設行、標題行
+# 各自寫死一份前綴，於是修好其中一種形狀不會讓另外兩種跟著修好。
+# （原本還有一個 _BULLET，只有預設行的兩個樣式在用；那兩個樣式已經連同它一起刪掉。）
 _LEAD = r"\s*(?:>\s*)*"          # 行首空白 ＋ 任意層 blockquote
-_BULLET = r"(?:(?:[-*+]|\d{1,2}[.)])\s*)?"   # 清單符號（可省略）
 
 # markdown 標題。允許 blockquote 包住——一份被引用起來的報告仍然是報告。
 HEAD_RE = re.compile(_LEAD + r"(#{1,6})\s+(.*)$")
@@ -307,42 +363,15 @@ FIELD_LINE_RE = re.compile(
     _LEAD + r"(?:[-*+]|\d{1,2}[.)])\s*\*{0,2}([^：:]+?)\*{0,2}\s*[：:]\s*(.*)$"
 )
 
-# 第一節的預設行。編號與冒號之間允許**一串**括號標籤：SKILL.md 第 1 步（甲）承接
-# 地形報告時，來源就寫在那裡（`預設 A1〔承接自地形 W3，支撐家族 F1、F4〕：…`），
-# 而承接是兩個模式唯一的介面。補了取樣框之後很自然會寫成兩個相鄰的括號
-# （`預設 A2〔承接自地形 W2〕〔已補取樣框〕：…`），所以括號是「一串」不是「一個」。
-# 分隔符除了冒號也收全形直線：SKILL.md 第 1 步示範補框後的寫法時，寫的正是
-# `預設 A1〔承接自地形 W3，已補取樣框〕｜標題層掃描 …`（沒有冒號）。
-# 這個括號一旦不被解析，承接來的預設對查核器就是不存在——既不會被算進去，
-# 也不會被檢查，而 G3 指到它時的錯誤訊息會說「第一節沒有這一條」。
-ASSUM_LINE_RE = re.compile(
-    _LEAD + _BULLET + r"\*{0,2}預設\s*([A-Za-z]?\d{0,3})\s*\*{0,2}"
-    r"((?:\s*\*{0,2}\s*[" + BRA_OPEN + r"][^" + BRA_CLOSE + r"]*[" + BRA_CLOSE + r"])*)"
-    r"\s*\*{0,2}\s*[：:｜|]\s*(.*)$"
-)
-
-# 「看起來是一條預設、卻不是可解析的形式」的偵測器（比 ASSUM_LINE_RE 寬）。
-# 寬到連表格列（`| 預設 A1 | …`）都認得出來，因為靜默丟掉一行畸形的預設，
-# 比誤報一次昂貴得多：前者讓報告帶著沒被讀過的一行拿到綠燈。
+# **第一節的預設行不再被解析。** 以前這裡有兩個樣式：一個把 `預設 A1〔標籤〕：〈一句話〉｜…`
+# 拆成編號／標籤／五個數字，一個負責偵測「看起來像預設、卻讀不出來」的行。四輪對抗測試裡
+# 有三輪的戰場是它們，唯一一個不必刻意構造就會發生的破口（`前提 A1`／`假設 A1`）也在它們身上。
+# 兩個都刪了：預設的身分現在是 `rgh-block` 裡的一個 JSON 欄位，散文那一行只被問
+# containment（那句話有沒有出現）。換一種寫法不再讓它從查核裡消失——區塊照樣要求那些字串
+# 出現在散文，找不到就是 ANCHOR-01。
 #
-# **這裡刻意不加任何「後面必須跟著什麼」的 lookahead，而那是一個已經犯過一次的錯。**
-# 上一輪為了讓 `- 預設 A1 與 A2 都與量測方式有關`（在**講**那兩條預設的散文）
-# 不要被報成「這一行讀不到」，在編號後面加了一個結構字元的 lookahead
-# （：: ｜ | 〈 或標籤括號）。代價是：分隔符只要落在那個字元類之外——例如
-# `- 預設 A2——〈…〉`——這一行就同時對 ASSUM_LINE_RE 與本樣式隱形，
-# 於是預設 3→0、unreadable 0、離開碼 0、零筆 finding。修掉一次假紅燈，
-# 換回了上一輪整條規則存在的理由：那個假綠燈。
-#
-# 所以取捨明講，寫在這裡是為了讓下一個人不要「順手修好」它：
-# **假紅燈與假綠燈不等價。** 假紅燈讓讀者花五分鐘看懂那一行沒壞；
-# 假綠燈是查核器對一份它沒讀過的文件說「通過」。兩者衝突時取假紅燈。
-# 因此，凡是以 `預設` ＋ 編號開頭的行，只要 ASSUM_LINE_RE 讀不出來，
-# 一律回報——包括真的只是在講那兩條預設的散文（見樣本
-# fixtures/assumption_prose_mention.md，它現在是紅的，而那是正確的行為）。
-# 要避開它，把那句話寫成不以 `預設 A1` 開頭的句子即可。
-ASSUM_LOOKALIKE_RE = re.compile(
-    r"^\s*(?:[>|｜]\s*)*" + _BULLET + r"\*{0,2}\s*預設\s*[A-Za-z]?\d{1,3}"
-)
+# 這不是「把界線再移一次」的另一個名字，差別在**失效方向**：解析失敗會靜默丟掉一行，
+# containment 失敗只會是一筆 finding。前者是查核器對沒讀過的東西說通過，後者是假紅燈。
 
 # 候選區塊標題。比對前先過 strip_md，所以 `### **候選 1（C01）**：…` 也讀得到。
 CAND_HEAD_RE = re.compile(
@@ -355,28 +384,10 @@ CAND_LOOKALIKE_RE = re.compile(r"^(?:候選|候補|Candidate)", re.I)
 ROWISH_RE = re.compile(r"^\s*(?:>\s*)*[|｜]")
 # 未跳脫的半形直線。用來數「這一行像不像一列表格」——見 parse_table 的漏行首直線偵測。
 PIPE_RE = re.compile(r"(?<!\\)\|")
-IMPRESSION_RE = re.compile(
-    r"[" + BRA_OPEN + r"]\s*印象\s*[，,]\s*未驗證\s*[" + BRA_CLOSE + r"]")
-# 承接自地形報告的兩種標籤。未補取樣框者效力等同〔印象，未驗證〕（不得當 G3 輸入），
-# 補了取樣框者與本輪量化的預設同等看待。兩者都**保留原標籤**：效力相同、來源不同，
-# 讀者要看得出這一條是別份報告帶進來的，所以查核器不得叫報告改寫成〔印象，未驗證〕。
-INHERIT_RE = re.compile(r"承接\s*自\s*地形")
-FRAMED_RE = re.compile(r"已\s*補\s*取樣框")
+# 候選的〈缺口類型〉欄裡指名的預設編號（`G3 預設反轉（反轉 A1）`）。**這一條留在散文**：
+# 候選不在本次搬進區塊的範圍內，所以「這個 G3 反轉的是誰」還是從候選欄位讀；
+# 「那一條有沒有資格被反轉」則改讀區塊的 status（見 check_g3_inputs）。
 AREF_RE = re.compile(r"(?<![A-Za-z0-9])[Aa](\d{1,2})(?![0-9])")
-
-# 量化預設的五個取樣框欄位（缺一不可）
-ASSUM_SEGMENTS = [
-    ("標題層掃描 N 篇", re.compile(r"標題層掃描\s*(\d+)\s*篇"), "N"),
-    ("檢索詞", re.compile(r"檢索詞"), None),
-    ("limit", re.compile(r"limit\s*(\d+)", re.I), None),
-    ("摘要層精讀 M′ 篇", re.compile(r"摘要層精讀\s*(\d+)\s*篇"), "Mp"),
-    ("pick 索引", re.compile(r"pick\s*索引", re.I), None),
-    ("其中 M 篇沿用", re.compile(r"其中\s*(\d+)\s*篇沿用"), "M"),
-    ("推翻性檢索", re.compile(r"推翻性檢索"), None),
-    ("回傳 K′ 篇", re.compile(r"回傳\s*(\d+)\s*篇"), "Kp"),
-    ("讀後 K 篇", re.compile(r"讀後\s*(\d+)\s*篇"), "K"),
-    ("樣本來源", re.compile(r"樣本來源"), None),
-]
 
 
 # --------------------------------------------------------------------------
@@ -485,6 +496,466 @@ def apply_report_blocks(text):
 
 
 # --------------------------------------------------------------------------
+# rgh-block：抽出、正規化、驗證
+# --------------------------------------------------------------------------
+
+def find_fenced_blocks(text):
+    """掃出所有反引號圍欄區塊：[{info, body, start, end}]（行號 0-based，含圍欄行）。
+
+    只認反引號、不認 `~~~`。這是刻意的：一個被 `~~~` 包起來「當範例展示」的
+    rgh-block，對本檔仍然是文件裡的第二個區塊——而「整份恰好一個」正是關掉
+    誘餌那一類的唯一規則，開一個「這只是範例」的例外就等於把它交回去。
+    """
+    lines = text.splitlines()
+    out = []
+    i = 0
+    while i < len(lines):
+        m = FENCE_OPEN_RE.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        ticks = len(m.group(1))
+        close_re = re.compile(r"^\s{0,3}`{%d,}\s*$" % ticks)
+        body, j, closed = [], i + 1, None
+        while j < len(lines):
+            if close_re.match(lines[j]):
+                closed = j
+                break
+            body.append(lines[j])
+            j += 1
+        out.append({
+            "info": m.group(2).strip(),
+            "body": "\n".join(body),
+            "start": i,
+            "end": closed if closed is not None else len(lines) - 1,
+            "closed": closed is not None,
+        })
+        i = (closed + 1) if closed is not None else len(lines)
+    return out
+
+
+def extract_rgh_blocks(text):
+    """(逐字符合圍欄標籤的區塊, 標籤不對但內容像 rgh-block 的區塊)。
+
+    第二項只用來把 BLOCK-01 的訊息講清楚：一個把圍欄寫成 ```json 的作者，
+    得到的訊息應該是「標籤要逐字寫 json rgh-block」，不是「這份報告沒有區塊」。
+    """
+    blocks = find_fenced_blocks(text)
+    exact = [b for b in blocks if b["info"] == BLOCK_FENCE_INFO]
+    near = []
+    for b in blocks:
+        if b["info"] == BLOCK_FENCE_INFO or BLOCK_SCHEMA_VERSION not in b["body"]:
+            continue
+        try:
+            data = json.loads(b["body"])
+        except ValueError:
+            continue
+        if isinstance(data, dict) and data.get("schema") == BLOCK_SCHEMA_VERSION:
+            near.append(b)
+    return exact, near
+
+
+def _fence_structure_why(line, mode):
+    """這一行像不像「報告結構」。回傳一句說明，或 None。
+
+    判準刻意窄，只認**報告自己的**結構：分類得出來的區段標題、候選／家族區塊標題、
+    表格列、提到 `預設 A<n>` 的行、以及標籤在別名表裡的欄位行。不認「任何長得像
+    markdown 的東西」——圍欄裡本來就常有 `# 這是註解` 與管線符號，把它們一律當成結構
+    就是天天假紅燈，而一條天天誤報的規則最後會被關掉，那等於把這塊區域整個交還回去。
+    """
+    if not line.strip():
+        return None
+    m = HEADISH_RE.match(line)
+    if m:
+        title = strip_md(m.group(2).strip())
+        classify = classify_landscape_section if mode == "landscape" else classify_section
+        if classify(title) != "other":
+            return "區段標題「%s」" % title[:30]
+        if CAND_HEAD_RE.match(title):
+            return "候選區塊的標題「%s」" % title[:30]
+        if mode == "landscape" and LAND_FAMILY_HEAD_RE.match(title):
+            return "家族區塊的標題「%s」" % title[:30]
+        return None
+    if ROWISH_RE.match(line) and len(re.findall(r"[|｜]", line)) >= 2:
+        return "表格列"
+    if PROSE_AID_RE.search(strip_md(line)):
+        return "第一節的預設行（提到「預設 A<n>」）"
+    fm = FIELD_LINE_RE.match(line)
+    if fm:
+        key = norm_key(fm.group(1))
+        for aliases in (LABEL_ALIASES, LAND_LABEL_ALIASES):
+            for names in aliases.values():
+                if any(norm_key(a) == key for a in names if norm_key(a)):
+                    return "欄位行〈%s〉" % strip_md(fm.group(1)).strip()[:20]
+    return None
+
+
+def _find_fences_for_scan(lines):
+    """掃出所有圍欄區塊，**反引號與波浪號都算**。只給結構掃描用。
+
+    `find_fenced_blocks` 只認反引號，那是刻意的，理由寫在它自己的 docstring 裡：
+    `BLOCK-01` 的「整份恰好一個」不能因為換一種圍欄符號就被繞開，所以一個被 `~~~`
+    包起來當範例展示的 rgh-block，對那個函式仍然是第二個區塊。
+
+    這裡問的是**另一個問題**：有沒有一塊區域，讀者看到的是程式碼。`~~~` 在讀者眼裡
+    與 ``` 一模一樣，所以只認一種就是留一個一字元的繞道——而這條規則存在的理由，
+    正是「兩邊都不算的區域什麼都裝得下」。
+    """
+    out = []
+    i = 0
+    while i < len(lines):
+        m = FENCE_SCAN_OPEN_RE.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        marks = m.group(1)
+        close_re = re.compile(r"^\s{0,3}%s{%d,}\s*$" % (re.escape(marks[0]), len(marks)))
+        body, j, closed = [], i + 1, None
+        while j < len(lines):
+            if close_re.match(lines[j]):
+                closed = j
+                break
+            body.append(lines[j])
+            j += 1
+        out.append({"char": marks[0], "info": m.group(2).strip(), "body": "\n".join(body),
+                    "start": i, "end": closed if closed is not None else len(lines) - 1})
+        i = (closed + 1) if closed is not None else len(lines)
+    return out
+
+
+def scan_fences_for_structure(lines, mode):
+    """圍欄區塊裡不得藏報告結構。回傳 [dict(line, text, why, info, hits)]。
+
+    **這一條守的是「查核器不讀的地方」，不是「報告寫錯了什麼」。** 一個圍欄區塊在
+    讀者眼裡是程式碼，在查核器眼裡則視情況：地形報告的 `rgh-block` 圍欄以前兩邊都不算
+    ——不被驗證、也不被掃描——於是它是文件裡一塊沒有人讀的地方，而沒有人讀的地方
+    只要夠大就什麼都裝得下。這一條把它變成一句話：**凡是我不打算讀的區域，
+    裡面若有東西長得像報告結構，就要說出來。**
+
+    逐字符合圍欄標籤的 `rgh-block` 是唯一的例外，**兩種模式都例外，但理由不同**：
+    缺口報告裡它被讀了（`validate_block` 逐欄驗證），內容歸 `BLOCK-01` 管；
+    地形報告裡它整個不該存在，`LandscapeChecker.check_stray_block` 已經指著那一行說了，
+    再對它的內容多說一句只會把一個缺陷變成兩句話。要緊的是那個區域**不再靜默**：
+    模式判別移到剝除之前以後，地形報告的區塊內容照樣進 LANG-01 與 LVOCAB-01 的掃描。
+    """
+    out = []
+    for b in _find_fences_for_scan(lines):
+        # 例外只給**反引號寫的**逐字圍欄標籤：`~~~json rgh-block` 不是 rgh-block
+        # （`find_fenced_blocks` 不認它），所以它沒有「已經被驗過」這個豁免理由。
+        if b["char"] == "`" and b["info"] == BLOCK_FENCE_INFO:
+            continue
+        hits = []
+        for off, ln in enumerate(b["body"].splitlines()):
+            why = _fence_structure_why(ln, mode)
+            if why:
+                hits.append((b["start"] + 1 + off, ln, why))
+        if hits:
+            lineno, raw, why = hits[0]
+            out.append({"line": lineno + 1, "text": raw, "why": why,
+                        "info": b["info"], "hits": len(hits),
+                        "char": b["char"] * 3,   # 訊息要叫作者去找他真的寫的那三個字元
+                        "fence_line": b["start"] + 1})
+    return out
+
+
+def blank_html_comments(text):
+    """把 HTML 註解的內容換成空白，但保留換行——行號因此不動。"""
+    if "<!--" not in text:
+        return text
+    chars = list(text)
+    for m in HTML_COMMENT_RE.finditer(text):
+        for i in range(m.start(), m.end()):
+            if chars[i] != "\n":
+                chars[i] = " "
+    return "".join(chars)
+
+
+def normalize_for_containment(s):
+    """containment 比對用的正規化。**兩邊做同一套，順序寫死在這裡。**
+
+    1. （呼叫端先做）移除 rgh-block 區塊本身
+    2. 移除 HTML 註解——**這一步是強制的**。少了它，一段藏在註解裡的誘餌就能
+       滿足 containment，而讀者在畫面上看到的是另一句話；那正是先前那個結算誘餌
+       的機制，把它留下來等於換一個地方重演一次。
+    3. NFKC（＝→=、＋→+、｜→|、，→,、（）→()）
+    4. 去掉 markdown 強調與反引號
+    5. 空白摺疊成單一空格
+    6. 去掉逗號兩側的空白（`pick 索引 0, 2, 3` 與 `0,2,3` 要相等）
+    7. casefold（英文查詢詞的大小寫不該決定紅綠）
+
+    正規化在這裡是安全的：每一步都**兩邊都做**，而且只會讓「找得到」更容易。
+    它的失效方向是假紅燈，不是假綠燈。
+    """
+    s = HTML_COMMENT_RE.sub(" ", s)
+    s = unicodedata.normalize("NFKC", s)
+    s = re.sub(r"[*_`]", "", s)
+    s = re.sub(r"\s+", " ", s)
+    s = re.sub(r"\s*,\s*", ",", s)
+    return s.casefold()
+
+
+def _is_int(v):
+    """JSON 的 true/false 在 Python 裡是 int 的子類，不能算數字。"""
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def _wide_digit_note(value):
+    """編號裡有非 ASCII 數字時的補充句；沒有就回空字串。
+
+    存在的理由是**訊息要落在壞掉的那個東西上**。全形數字寫的 `A１` 形狀不合，
+    而它接下來造成的三筆 finding（散文有 `預設 A1` 區塊卻沒有、G3 指到不存在的 A1、
+    第六節缺 `第1步-推翻A１` 對應列）全部指著沒有壞的行——因為 NFKC 只發生在
+    containment 那一側，原字串比對兩邊仍然不同。多這一句，作者才知道要改的是那一位數字。
+    """
+    if not isinstance(value, str):
+        return ""
+    bad = sorted(set(c for c in value if c.isdigit() and not ("0" <= c <= "9")))
+    if not bad:
+        return ""
+    return ("——注意「%s」不是半形阿拉伯數字（是 Unicode 的數字類別，NFKC 之後才會變成 "
+            "0-9）。編號是二／三／四節與第六節對帳的鍵，鍵一律用半形數字寫"
+            % "".join(bad))
+
+
+def _frame_problems(frame):
+    """取樣框十欄的形狀與算術。回傳 [(欄位路徑, 訊息)]，空 list 代表沒問題。"""
+    out = []
+    if not isinstance(frame, dict):
+        return [("frame", "`frame` 必須是物件（十個欄位），收到 %s" % type(frame).__name__)]
+    missing = [k for k in FRAME_FIELDS if k not in frame]
+    extra = [k for k in frame if k not in FRAME_FIELDS]
+    if missing:
+        out.append(("frame", "`frame` 少了欄位：%s（十欄缺一不可）" % "、".join(missing)))
+    if extra:
+        out.append(("frame", "`frame` 有規格外的欄位：%s" % "、".join(sorted(extra))))
+
+    def num(key, low):
+        v = frame.get(key)
+        if key in missing:
+            return None
+        if not _is_int(v):
+            out.append(("frame.%s" % key, "`%s` 必須是整數，收到 %r" % (key, v)))
+            return None
+        if v < low:
+            out.append(("frame.%s" % key, "`%s` 必須 ≥ %d，收到 %d" % (key, low, v)))
+            return None
+        return v
+
+    def text(key):
+        v = frame.get(key)
+        if key in missing:
+            return None
+        if not isinstance(v, str) or not v.strip():
+            out.append(("frame.%s" % key, "`%s` 必須是非空字串，收到 %r" % (key, v)))
+            return None
+        if is_placeholder(v):
+            out.append(("frame.%s" % key, "`%s` 是佔位符（「%s」）——查詢詞要逐字寫出，"
+                                          "使用者要能複製重跑" % (key, v.strip())))
+            return None
+        return v
+
+    # N 與 M′ 之間**沒有**大小關係，這裡刻意不比：N 是 `brief` 的標題層行數，
+    # M′ 是真的 `pick` 出來讀過摘要的篇數，SKILL.md 第 1 步逐字寫著「N 不是 M 的分母」。
+    num("N", 1)
+    text("query")
+    num("limit", 1)
+    # M′ < 3 的預設只能是 impression：這是 SKILL.md 第 1 步的門檻，不是風格偏好
+    mp = frame.get("Mp")
+    if "Mp" not in missing:
+        if not _is_int(mp):
+            out.append(("frame.Mp", "`Mp` 必須是整數，收到 %r" % (mp,)))
+            mp = None
+        elif mp < 3:
+            out.append(("frame.Mp", "摘要層精讀只有 %d 篇（M′ < 3）——這樣的預設只能寫成 "
+                                    "`\"status\": \"impression\"`，而印象級預設不得作為 G3 輸入" % mp))
+            mp = None
+    else:
+        mp = None
+    pick = frame.get("pick")
+    if "pick" not in missing:
+        if not isinstance(pick, list) or not all(_is_int(x) and x >= 0 for x in pick):
+            out.append(("frame.pick", "`pick` 必須是非負整數的陣列，收到 %r" % (pick,)))
+            pick = None
+        elif len(set(pick)) != len(pick):
+            out.append(("frame.pick", "`pick` 有重複的索引：%r" % (pick,)))
+            pick = None
+        elif mp is not None and len(pick) != mp:
+            out.append(("frame.pick", "`pick` 列了 %d 個索引，`Mp` 卻是 %d——"
+                                      "pick 出來的就是讀過摘要的那幾篇，兩者必須相等"
+                        % (len(pick), mp)))
+    m = num("M", 0)
+    if m is not None and mp is not None and m > mp:
+        out.append(("frame.M", "沿用篇數 M=%d 大於摘要層精讀 M′=%d——沿用只能在讀過摘要的樣本裡數"
+                    % (m, mp)))
+    text("refute_query")
+    kp = num("Kp", 0)
+    k = num("K", 0)
+    if k is not None and kp is not None and k > kp:
+        out.append(("frame.K", "推翻性檢索讀後 K=%d 大於回傳 K′=%d" % (k, kp)))
+    v = frame.get("sample")
+    if "sample" not in missing and (not isinstance(v, str) or not v.strip()):
+        out.append(("frame.sample", "`sample` 必須是非空字串（年份範圍＋索引名），收到 %r" % (v,)))
+    return out
+
+
+def validate_block(data):
+    """驗證整個區塊。回傳 [(check_id, 定位用的字串, 訊息)]。
+
+    **結構化資料沒有「寬容」的問題**：JSON 沒有形狀變體，所以這裡一律 EXACT，
+    不符就是一筆大聲的 finding。定位字串是給呼叫端拿去在區塊內文裡找行號用的。
+
+    分工：`BLOCK-01` 管載體與結算（整份區塊的形狀、schema 版本、四個數字的算術），
+    `ASSUM-01` 管 `assumptions[]` 的每一條。分兩個 id 是為了訊息會落在對的地方——
+    一個作者看到 ASSUM-01 要去改 A2 那一條，看到 BLOCK-01 要去改整個區塊。
+    """
+    out = []
+    if not isinstance(data, dict):
+        return [("BLOCK-01", None, "區塊的最外層必須是一個 JSON 物件，收到 %s" % type(data).__name__)]
+
+    declared = data.get("schema")
+    if declared != BLOCK_SCHEMA_VERSION:
+        out.append(("BLOCK-01", "\"schema\"",
+                    "這份報告宣告的 schema 版本是 %r，本查核器認得的是 %r"
+                    % (declared, BLOCK_SCHEMA_VERSION)))
+    missing = [k for k in BLOCK_TOP_KEYS if k not in data]
+    extra = [k for k in data if k not in BLOCK_TOP_KEYS]
+    if missing:
+        out.append(("BLOCK-01", None, "區塊少了必填的頂層欄位：%s" % "、".join(missing)))
+    if extra:
+        out.append(("BLOCK-01", None,
+                    "區塊有規格外的頂層欄位：%s。頂層恰好三個鍵（%s）——多裝東西進來，"
+                    "區塊就開始變成第二份報告，而它只該是「需要被算的那兩樣」的機器可讀副本"
+                    % ("、".join(sorted(extra)), "、".join(BLOCK_TOP_KEYS))))
+
+    st = data.get("settlement")
+    if "settlement" in data:
+        if not isinstance(st, dict):
+            out.append(("BLOCK-01", "\"settlement\"",
+                        "`settlement` 必須是物件（四個整數），收到 %s" % type(st).__name__))
+        else:
+            miss = [k for k in SETTLEMENT_KEYS if k not in st]
+            more = [k for k in st if k not in SETTLEMENT_KEYS]
+            if miss:
+                out.append(("BLOCK-01", "\"settlement\"",
+                            "`settlement` 少了欄位：%s" % "、".join(miss)))
+            if more:
+                out.append(("BLOCK-01", "\"settlement\"",
+                            "`settlement` 有規格外的欄位：%s" % "、".join(sorted(more))))
+            bad = [k for k in SETTLEMENT_KEYS if k in st and not (_is_int(st[k]) and st[k] >= 0)]
+            for k in bad:
+                out.append(("BLOCK-01", "\"settlement\"",
+                            "`settlement.%s` 必須是 ≥ 0 的整數，收到 %r" % (k, st[k])))
+            if not miss and not bad:
+                g, s, p, q = (st[k] for k in SETTLEMENT_KEYS)
+                if g != s + p + q:
+                    out.append(("BLOCK-01", "\"settlement\"",
+                                "候選結算對不起來：生成 %d ≠ 存活 %d ＋ 待確認 %d ＋ 已淘汰 %d（＝%d），"
+                                "差額就是被靜默丟掉的候選" % (g, s, p, q, s + p + q)))
+
+    ass = data.get("assumptions")
+    if "assumptions" in data:
+        if not isinstance(ass, list):
+            out.append(("BLOCK-01", "\"assumptions\"",
+                        "`assumptions` 必須是陣列（可以是空的），收到 %s" % type(ass).__name__))
+        else:
+            seen = set()
+            for idx, e in enumerate(ass):
+                out.extend(_validate_assumption(idx, e, seen))
+    return out
+
+
+def _validate_assumption(idx, e, seen):
+    """`assumptions[]` 的一條。回傳 [(check_id, 定位字串, 訊息)]，一律 ASSUM-01。"""
+    where = "assumptions[%d]" % idx
+    if not isinstance(e, dict):
+        return [("ASSUM-01", None, "%s 必須是物件，收到 %s" % (where, type(e).__name__))]
+    aid = e.get("id")
+    loc = ("\"id\": \"%s\"" % aid) if isinstance(aid, str) else None
+    out = []
+    if not isinstance(aid, str) or not BLOCK_AID_RE.match(aid):
+        out.append(("ASSUM-01", loc, "%s 的 `id` 要寫成 `A` 加數字（A1…A999），收到 %r%s"
+                    % (where, aid, _wide_digit_note(aid))))
+    elif aid in seen:
+        out.append(("ASSUM-01", loc, "預設編號 %s 在區塊裡出現不只一次——編號是第 3 步 G3 與"
+                                     "第六節推翻性檢索的對帳依據，重複就對不了帳" % aid))
+    else:
+        seen.add(aid)
+    name = aid if isinstance(aid, str) else where
+
+    more = [k for k in e if k not in ASSUM_ENTRY_KEYS]
+    if more:
+        out.append(("ASSUM-01", loc, "%s 有規格外的欄位：%s" % (name, "、".join(sorted(more)))))
+
+    status = e.get("status")
+    status_ok = isinstance(status, str) and status in ASSUM_STATUS_VALUES
+    if not status_ok:
+        out.append(("ASSUM-01", loc,
+                    "%s 的 `status` 是 %r，不在四個列舉值內（%s）。這一欄是預設的**效力**："
+                    "framed 與 inherited_framed 可以當 G3 輸入、要有第六節的推翻性檢索列；"
+                    "impression 與 inherited 不行、也免附紀錄"
+                    % (name, status, "／".join(ASSUM_STATUS_VALUES))))
+
+    anchor = e.get("anchor")
+    if not isinstance(anchor, str) or not anchor.strip():
+        out.append(("ASSUM-01", loc, "%s 的 `anchor` 必須是非空字串（那條預設的一句話，不含〈〉），"
+                                     "收到 %r" % (name, anchor)))
+
+    if "frame" not in e:
+        out.append(("ASSUM-01", loc, "%s 少了 `frame` 欄位——它一律要在，沒有取樣框就寫 `null`，"
+                                     "「沒寫」與「明講沒有」不是同一件事" % name))
+    elif status_ok:
+        frame = e.get("frame")
+        if status in ("framed", "inherited_framed"):
+            if frame is None:
+                out.append(("ASSUM-01", loc,
+                            "%s 的 `status` 是 %s，`frame` 卻是 null——宣稱跑完（或補完）取樣框，"
+                            "就要與本輪量化的預設同標準：十個欄位齊全。做不到就把 status 改成 %s"
+                            % (name, status,
+                               "impression" if status == "framed" else "inherited")))
+            else:
+                for path, msg in _frame_problems(frame):
+                    out.append(("ASSUM-01", loc, "%s 的 %s" % (name, msg)))
+        elif frame is not None:
+            out.append(("ASSUM-01", loc,
+                        "%s 的 `status` 是 %s，`frame` 必須是 null——地形模式在定義上沒有跑過 "
+                        "N／M′／M／K′／K，印象級預設也沒有；填一組數字進去就是把沒跑過的搜尋寫出來"
+                        % (name, status)))
+
+    inherited = status in ("inherited", "inherited_framed")
+    wall = e.get("wall")
+    if inherited:
+        if not isinstance(wall, str) or not BLOCK_WALL_RE.match(wall or ""):
+            out.append(("ASSUM-01", loc, "%s 承接自地形報告，`wall` 要寫成 `W` 加數字，收到 %r%s"
+                        % (name, wall, _wide_digit_note(wall))))
+    elif "wall" in e and status_ok:
+        out.append(("ASSUM-01", loc, "%s 不是承接來的（status=%s），不該有 `wall`" % (name, status)))
+
+    fams = e.get("families")
+    if status == "inherited":
+        # 只有 inherited 必填：inherited_framed 的散文標籤是〔承接自地形 W…，已補取樣框〕，
+        # 照 SKILL.md 第 1 步的規格本來就不列家族，要求它就是一天到晚的假紅燈。
+        if not isinstance(fams, list) or not fams:
+            out.append(("ASSUM-01", loc, "%s 是承接未補框的預設，`families` 必填（至少一個 "
+                                         "`F` 加數字），收到 %r" % (name, fams)))
+        elif not all(isinstance(f, str) and BLOCK_FAMILY_RE.match(f) for f in fams):
+            out.append(("ASSUM-01", loc, "%s 的 `families` 要全部是 `F` 加數字，收到 %r%s"
+                        % (name, fams,
+                           _wide_digit_note("".join(f for f in fams if isinstance(f, str))))))
+        elif len(set(fams)) != len(fams):
+            out.append(("ASSUM-01", loc, "%s 的 `families` 有重複：%r" % (name, fams)))
+    elif "families" in e and status_ok:
+        if status == "inherited_framed":
+            if not isinstance(fams, list) or not fams or not all(
+                    isinstance(f, str) and BLOCK_FAMILY_RE.match(f) for f in fams):
+                out.append(("ASSUM-01", loc, "%s 的 `families` 寫了就要是 `F` 加數字的非空陣列，"
+                                             "收到 %r" % (name, fams)))
+        else:
+            out.append(("ASSUM-01", loc, "%s 不是承接來的（status=%s），不該有 `families`"
+                        % (name, status)))
+    return out
+
+
+# --------------------------------------------------------------------------
 # 解析
 # --------------------------------------------------------------------------
 
@@ -498,22 +969,39 @@ class Report(object):
         self.header_lines = []          # (lineno, text) 到第一個 ## 為止
         self.sections = []              # dict(kind, title, start, end)
         self.candidates = []            # dict(ordinal, cid, title, line, fields{key:(lineno,value)})
-        self.assumptions = []           # dict(aid, line, text, impression, numbers)
         self.pending_rows = []          # dict(cells{col:value}, line)
         self.kill_rows = []             # dict(cells{col:value}, line)
         self.trace_rows = []            # dict(cells{col:value}, line)
-        self.declared_generated = None
-        self.declared_survived = None
-        self.count_line = None
-        self.settlement = None          # (N, M, P, Q)
-        self.settlement_line = None
         self.no_search_declared = False
         self.report_blocks = 0
+        # ---- rgh-block（結構化區塊）------------------------------------
+        # 從**原始檔案文字**抽出，在 report-start／report-end 開窗之前——否則標記
+        # 就能把區塊藏起來，而那時的 BLOCK-01 訊息會是錯的（說「沒有區塊」，
+        # 其實是「區塊被標記排除了」）。
+        self.raw_blocks = []            # 圍欄標籤逐字符合的區塊
+        self.near_blocks = []           # 標籤不對、內容卻像 rgh-block 的區塊
+        self.block = None               # json.loads 之後的 dict（解析失敗時 None）
+        self.block_error = None         # (lineno, colno, msg)
+        self.block_line = 1             # 區塊圍欄的行號（findings 的錨點）
+        self.settlement = None          # (生成, 存活, 待確認, 已淘汰)，來自區塊
+        self.settlement_ok = False      # 四個數字齊全且算術成立才是 True
+        self.assumptions = []           # 區塊裡形狀合法的預設條目（dict）
+        self.assumptions_ok = False     # `assumptions` 存在而且是一個陣列
+        # 區塊**試圖**宣告的每一個編號，含形狀不合法的那些。用途只有一個：閉嘴。
+        # ASSUM-01 已經指著那一條說它壞了，反向掃描若再說一次「區塊裡沒有這一條」，
+        # 就是把讀者送去補一個已經在那裡的東西——正是這支查核器一路在刪的那句話。
+        self.block_declared_ids = set()
+        self.prose = ""                 # 剝掉區塊之後的散文（未正規化）
+        self.prose_norm = ""            # containment 比對用的正規化散文
+        self.prose_lines_norm = []      # 同一套正規化，但**逐行**——行內共現要靠它問
+        self.scan_lines = []            # 禁語掃描用：剝區塊與 HTML 註解，行號對齊 lines
         # 讀不進來的東西。解析器可以寬容，但不可以安靜：凡是「看起來是報告的一部分、
-        # 卻沒被讀進任何結構」的行，都堆在這裡，由 PARSE-01／ASSUM-01 回報。
+        # 卻沒被讀進任何結構」的行，都堆在這裡，由 PARSE-01 回報。
         self.table_strays = []          # dict(line, text, why)：表格列讀不到／欄數不符
         self.head_strays = []           # dict(line, text, why)：候選或家族標題讀不到
-        self.assumption_strays = []     # dict(line, text)：看起來是預設、卻解析不出來
+        # 圍欄區塊裡長得像報告結構的東西。圍欄在讀者眼裡是程式碼，所以報告結構躲進去
+        # 就有機會兩邊落空（查核器不當它是結構、讀者不當它是內容）——說出來就好。
+        self.fence_strays = []          # dict(line, text, why, info, hits, fence_line)
         # 標題被改寫過、只能靠內容認出來的區段。這一份**不是**「讀不到」——內容
         # 讀得到、規則照跑——而是「這一節的名字不對」，所以它有自己的 id（SECT-01）。
         self.section_renames = []       # dict(line, text, title, kind, title_kind)
@@ -713,8 +1201,11 @@ def section_shape_kind(rep, heads, s, mode):
         return "families" if "family" in kinds else None
     if "candidate" in kinds:
         return "survivors"
+    # 第一節靠「裡面有沒有提到預設 A<n>」認。這是一個 **token 掃描**，不是預設行的
+    # 解析——它不決定任何一條預設的內容，只回答「這一節是哪一節」。失效方向是假紅燈
+    # （一段剛好提到預設 A1 的散文會讓那一節被歸成第一節，於是 SECT-01 誤報）。
     for j in range(s["start"], s["end"]):
-        if ASSUM_LINE_RE.match(rep.lines[j]) or ASSUM_LOOKALIKE_RE.match(rep.lines[j]):
+        if PROSE_AID_RE.search(strip_md(rep.lines[j])):
             return "consensus"
     return None
 
@@ -896,47 +1387,6 @@ def parse_table(lines, start, end, aliases=None, strays=None, where=""):
     return header, out
 
 
-def parse_assumption(lineno, raw):
-    """把第一節的一條「預設」行拆成編號、來源標籤、是否印象級、五個取樣框數字。
-
-    讀不到就回 None，由呼叫端決定怎麼處理——**不是**丟掉。丟掉一行畸形的預設，
-    報告會少一條預設而查核器一聲不吭，那是最壞的一種綠燈。
-    """
-    m = ASSUM_LINE_RE.match(raw)
-    if not m:
-        return None
-    aid = m.group(1).strip().upper()
-    if aid and aid[0].isdigit():
-        aid = "A" + aid
-    # 標籤可能有好幾個相鄰的括號（`〔承接自地形 W2〕〔已補取樣框〕`），整串一起看：
-    # 分開看的話，第二個括號裡的〔已補取樣框〕會落在解析範圍外，一條補過框的預設
-    # 就會被當成沒補框，訊息叫作者去補一個他已經補過的東西。
-    label = m.group(2) or ""
-    body = m.group(3)
-    inherited = bool(INHERIT_RE.search(label))
-    rec = {
-        "aid": aid or None,
-        "line": lineno,
-        "text": raw,
-        "label": label.strip(),
-        "inherited": inherited,
-        "framed": inherited and bool(FRAMED_RE.search(label)),
-        # 承接的預設**按標籤分類，不按內文措辭**。SKILL.md 的寫法會在句尾補一句
-        # 「效力同〔印象，未驗證〕」；那是說明，不是這一條的來源。照字面歸成印象級，
-        # 訊息就會把承接來的預設講成本輪憑印象寫的，來源當場消失。
-        "impression": bool(IMPRESSION_RE.search(raw)) and not inherited,
-        "missing": [],
-        "numbers": {},
-    }
-    for label, rx, key in ASSUM_SEGMENTS:
-        mm = rx.search(body)
-        if not mm:
-            rec["missing"].append(label)
-        elif key:
-            rec["numbers"][key] = int(mm.group(1))
-    return rec
-
-
 def parse_fields(lines, start, end, aliases):
     """把 `- **標籤**：值` 這種欄位行收成 {canon: (lineno, value)}。"""
     fields = {}
@@ -1029,15 +1479,41 @@ def parse_landscape(rep, heads):
 
 def parse_report(text):
     rep = Report()
+    # 區塊先抽，而且是從**原始文字**抽——在 report-start／report-end 開窗之前。
+    # 反過來的話，兩個標記就能把區塊排除掉，而 BLOCK-01 雖然照樣會響，訊息卻是錯的。
+    rep.raw_blocks, rep.near_blocks = extract_rgh_blocks(text)
     text, rep.report_blocks = apply_report_blocks(text)
     rep.lines = text.splitlines()
     lines = rep.lines
 
     heads = scan_heads(lines)
-
     first_h2 = next((h["line0"] for h in heads if h["level"] == 2), len(lines))
     rep.header_lines = [(i + 1, lines[i]) for i in range(0, first_h2)]
+    # **型別要先判、再決定散文扣掉什麼。** 剝掉 rgh-block 的理由是「它已經被讀過了」
+    # （`validate_block` 逐欄驗證，而它合法地含有判定詞彙），那個理由只在缺口報告成立。
+    # 以前這一段寫在 detect_mode 之前，於是地形報告裡的一個 `json rgh-block` 圍欄
+    # 同時滿足兩件事：LandscapeChecker 從不驗它，而它又被剝出散文與禁語掃描——
+    # 一塊沒有人讀的區域。evals/README 說 LVOCAB-01 不能有 mention／use 豁免，
+    # 「因為那會是吞掉它的那個洞」；那正是這裡不小心開出來的一個。
     rep.mode = detect_mode(lines, first_h2)
+
+    # 散文＝開窗之後的文字，缺口報告再扣掉區塊本身。containment 與禁語掃描跑在這上面。
+    prose_lines = list(lines)
+    if rep.mode == "gap":
+        for b in rep.raw_blocks:
+            for i in range(b["start"], min(b["end"] + 1, len(prose_lines))):
+                prose_lines[i] = ""
+    rep.prose = "\n".join(prose_lines)
+    rep.prose_norm = normalize_for_containment(rep.prose)
+    rep.prose_lines_norm = [normalize_for_containment(ln) for ln in prose_lines]
+    # 禁語掃描要逐行報行號，所以另存一份「剝過註解、行號仍然對得上」的副本。
+    rep.scan_lines = blank_html_comments(rep.prose).splitlines()
+    if len(rep.scan_lines) < len(lines):
+        rep.scan_lines += [""] * (len(lines) - len(rep.scan_lines))
+
+    # 圍欄裡不得藏報告結構（兩種模式共用；缺口報告已驗過的那個區塊除外）。
+    rep.fence_strays = scan_fences_for_structure(lines, rep.mode)
+
     # 節名只用來**取名字**：真正決定一節是什麼的是它裝了什麼（resolve_sections）。
     classify = classify_landscape_section if rep.mode == "landscape" else classify_section
 
@@ -1058,24 +1534,12 @@ def parse_report(text):
         parse_landscape(rep, heads)
         return rep
 
-    # 生成 N → 存活 M（第二節標題）
-    for i, ln in enumerate(lines):
-        m = COUNT_RE.search(ln)
-        if m:
-            rep.declared_generated = int(m.group(1))
-            rep.declared_survived = int(m.group(2))
-            rep.count_line = i + 1
-            break
-
-    # 表頭的候選結算行
-    for i, ln in enumerate(lines):
-        if not SETTLE_LABEL_RE.search(ln):
-            continue
-        m = SETTLE_RE.search(ln)
-        rep.settlement_line = i + 1
-        if m:
-            rep.settlement = tuple(int(g) for g in m.groups())
-        break
+    # 候選結算與第二節標題的四個數字**不再從散文讀**：它們的唯一來源是區塊
+    # （Checker.check_block 填 rep.settlement），散文那兩行改由 ANCHOR-01 比對。
+    # 以前這裡是「全文第一個 match 就 break」，於是檔首一行 HTML 註解裡的假結算
+    # 就能搶走整條對帳，而讀者在畫面上看不到那一行。
+    if rep.raw_blocks:
+        rep.block_line = rep.raw_blocks[0]["start"] + 1
 
     for i, ln in enumerate(lines):
         if NO_SEARCH_RE.search(ln):
@@ -1133,27 +1597,9 @@ def parse_report(text):
                                    rep.table_strays, "六、檢索紀錄")
             rep.trace_rows.extend(rows)
 
-    # 第一節的預設行：**整份文件掃**，不限於某一節。
-    # 這一條是 B3 的修法，也是本檔那條原則最直接的一次應用：以前只在
-    # kind == "consensus" 的區段裡掃，於是把 `## 一、領域共識與未被質疑的預設`
-    # 改名成 `## 一、這個領域大家都同意什麼`（甚至只是把那一行標題刪掉），
-    # 預設就 2→0、unreadable 0、離開碼 0；而一份有 G3 候選的報告會多出一句
-    # 「G3 候選 C01 的輸入 A1 不在第一節」——把作者送去補一條就躺在那裡的預設。
-    # 預設行本身就有夠獨特的形狀（見 ASSUM_LOOKALIKE_RE 的結構字元要求），
-    # 不需要靠節名找。表格區段跳過：那裡的 `| … |` 由 parse_table 負責。
-    table_spans = [(s["start"], s["end"]) for s in rep.sections
-                   if s["kind"] in ("killed", "pending", "trace")]
-    for j, raw in enumerate(lines):
-        if any(a <= j < b for a, b in table_spans):
-            continue
-        rec = parse_assumption(j + 1, raw)
-        if rec:
-            rep.assumptions.append(rec)
-        elif ASSUM_LOOKALIKE_RE.match(raw):
-            # 看起來是一條預設、卻讀不出來。丟掉它的代價：這一條既不被算進去
-            # 也不被檢查，而 G3 指到它時的訊息會說「第一節沒有這一條」。
-            rep.assumption_strays.append({"line": j + 1, "text": raw})
-
+    # 第一節的預設**不在這裡解析**——它的唯一來源是 rgh-block，由
+    # Checker.check_block() 驗證後填進 rep.assumptions。散文那幾行只會被問
+    # containment（ANCHOR-01）：區塊寫的那句話、那五段數字，散文裡找不找得到。
     return rep
 
 
@@ -1162,24 +1608,37 @@ def parse_report(text):
 # --------------------------------------------------------------------------
 
 CHECK_DESCRIPTIONS = {
+    "BLOCK-01": "缺口報告最後必須恰好有一個 `json rgh-block` 圍欄區塊，內容是合法 JSON、"
+                "schema 版本認得、頂層恰好三個鍵，候選結算滿足 生成 ＝ 存活 ＋ 待確認 ＋ 已淘汰，"
+                "且 `assumptions` 非空（只有偵察模式可以交空清單，見規則訊息）。"
+                "沒有區塊就是第一節與結算完全沒有被查過，而沒有被查過不能長得像通過。"
+                "反過來，**地形報告不寫區塊**：那裡出現一個區塊，就是一塊沒有任何規則會驗的區域",
+    "ANCHOR-01": "區塊裡每一段有散文對應物的字串，都必須逐字出現在**剝掉 HTML 註解之後**的散文裡，"
+                 "而且綁在某一條預設上的那些要出現在**寫著「預設 A<n>」的那一行上**、"
+                 "那一行不得只落在別的區段裡；效力標籤反過來也不得掛在 status 對不上的預設行上。"
+                 "反向，散文裡每一個 `預設 A<n>` 也都要在區塊裡有一條。"
+                 "這是 containment，不是解析：答案只有出現或沒出現，沒有「靜默丟掉」這個選項",
     "PARSE-01": "看起來是報告結構的一部分、卻讀不進來的行、列或表，一律回報："
                 "表格列沒被讀進表（blockquote／全形直線／漏了行首直線／表格中間插了非表格的一行）、"
-                "欄數與表頭不符、候選或家族的標題認不出來、"
-                "以及一整張該在那裡卻讀不到的表",
+                "欄數與表頭不符、候選或家族的標題認不出來、一整張該在那裡卻讀不到的表，"
+                "以及**藏在圍欄區塊裡的報告結構**（圍欄在讀者眼裡是程式碼，"
+                "查核器也不保證讀它——兩邊都不算的區域什麼都裝得下）",
     "SECT-01": "區段標題不得改寫（SKILL.md〈輸出格式〉：「區段標題與欄位標籤不得改寫」）。"
                "標題認不出來的區段一律改以內容定位、底下的規則照常執行，"
                "但標題本身是一條違規——不是停止檢查的理由",
     "STRUCT-01": "報告必須有〈存活候選〉〈待確認〉〈已淘汰〉〈檢索紀錄〉四個區段",
     "STRUCT-02": "表頭必須宣告文獻工具階層（第 0/1/2/3 階）",
-    "COUNT-01": "「生成 N → 存活 M」的 M 必須等於實際候選區塊數",
-    "COUNT-02": "生成數 N 不得小於存活數 M",
-    "RECON-01": "候選結算必須對得起來：生成 N ＝ 存活 M ＋ 待確認 P ＋ 已淘汰 Q，且每個候選編號只出現一次",
+    "COUNT-01": "區塊結算的〈存活〉必須等於第二節實際寫出來的候選區塊數"
+                "（數字來自區塊、列數來自散文，這是一次真的交叉比對）",
+    "RECON-01": "區塊結算的〈待確認〉〈已淘汰〉必須等於第三、四節的實際列數，"
+                "且每個候選編號只在二／三／四其中一節出現一次",
     "VERDICT-01": "判定／暫定狀態必須是該區段允許的值",
     "VERDICT-02": "存活候選只能是 ADJACENT／OPEN／INCREMENTAL",
-    "ASSUM-01": "預設行要寫成讀得出來的形式（`預設 A1〔可選標籤〕：…`），且量化預設必須帶完整取樣框"
-                "（N／檢索詞／limit／M′／pick／M／推翻性檢索／K′／K／樣本來源）；"
-                "〔承接自地形 W…〕未補框者免（它不是這一輪抽樣出來的），標了〔已補取樣框〕就同標準",
-    "ASSUM-02": "標〔印象，未驗證〕、或〔承接自地形 W…〕尚未補取樣框的預設，不得成為 G3 候選的輸入",
+    "ASSUM-01": "區塊 `assumptions[]` 的每一條：`id` 是 A 加數字且不重複、`status` 是四個列舉值之一"
+                "（framed／impression／inherited／inherited_framed）、`anchor` 非空、"
+                "`frame` 在 framed／inherited_framed 必填十欄（Mp ≥ 3、len(pick) = Mp、M ≤ Mp、K ≤ Kp）"
+                "其餘必須是 null、`wall` 在承接時必填、`families` 在承接未補框時必填",
+    "ASSUM-02": "區塊 `status` 是 impression 或 inherited（承接未補框）的預設，不得成為 G3 候選的輸入",
     "EVID-01": "每個存活候選都要有搜尋證據欄",
     "EVID-02": "搜尋證據欄不得為空或佔位符",
     "EVID-03": "搜尋證據欄必須含至少一個具體查詢詞",
@@ -1188,8 +1647,10 @@ CHECK_DESCRIPTIONS = {
     "KILL-02": "CROWDED 必須指名 ≥3 篇",
     "KILL-03": "DONE 的淘汰原因必須含摘要逐字引句",
     "ID-01": "被指名的關鍵文獻必須帶識別碼（DOI／arXiv／S2）",
-    "TRACE-01": "二／三／四節的每個候選都要在〈檢索紀錄〉有對應列"
-                "（唯一例外：三、待確認裡〔未驗證〕、以及卡在術語的〔UNSEARCHABLE〕）",
+    "TRACE-01": "二／三／四節的每個候選、以及區塊裡 status 是 framed／inherited_framed 的每一條預設"
+                "（`第1步-推翻A<n>`），都要在〈檢索紀錄〉有對應列"
+                "（例外：三、待確認裡〔未驗證〕、卡在術語的〔UNSEARCHABLE〕，"
+                "以及 status 是 impression／inherited 的預設）",
     "TRACE-02": "〈檢索紀錄〉的查詢詞不得為佔位符",
     "LANG-01": "不得斷言「不存在／沒有人做過」，只能寫「這次搜尋沒有回傳」",
     "TIER-01": "宣告未執行檢索時不得填寫任何新穎性判定或淘汰判定",
@@ -1239,6 +1700,16 @@ class BaseChecker(object):
                      % (where, s["why"]))
         for s in self.rep.head_strays:
             self.add("PARSE-01", s["line"], s["text"], s["why"])
+        for s in self.rep.fence_strays:
+            self.add("PARSE-01", s["line"], s["text"],
+                     "這一行在一個圍欄區塊裡（第 %d 行開的 %s%s），內容卻是%s"
+                     "%s。圍欄在讀者眼裡是程式碼、不是報告內容，"
+                     "查核器也不保證會把它當成報告結構讀——**兩邊都不算的區域，"
+                     "就是什麼都裝得下的區域**。報告結構請寫在圍欄外面；"
+                     "真的要展示一段範例，就把它放進 report-start／report-end 之外"
+                     % (s["fence_line"], s.get("char", "```"),
+                        s["info"] or "（無標籤）", s["why"],
+                        ("，同一個圍欄裡另有 %d 行同類" % (s["hits"] - 1)) if s["hits"] > 1 else ""))
         for s in self.rep.table_missing:
             where = ("整份報告裡" if s.get("whole_doc")
                      else "這一節的標題說它是%s，這裡卻"
@@ -1289,13 +1760,22 @@ class BaseChecker(object):
         return False
 
     def check_language(self):
+        """禁語掃描跑在 **scan_lines** 上：剝掉 HTML 註解、剝掉 rgh-block 區塊本身。
+
+        剝註解是 containment 正規化的第 2 步，這裡沿用同一條管線（行號仍對得上原檔）。
+        剝區塊是因為**區塊不是散文**：hunt 的區塊合法地含有判定詞彙，而 LVOCAB-01
+        在地形模式禁的正是那些字——把區塊算成散文，一個模式會誤放、另一個會誤殺。
+        """
         for i, ln in enumerate(self.rep.lines):
-            if ASSERTIVE_GUARD.search(ln):
+            scan = self.rep.scan_lines[i] if i < len(self.rep.scan_lines) else ln
+            if not scan.strip():
                 continue
-            if self.lang_exempt(ln):
+            if ASSERTIVE_GUARD.search(scan):
+                continue
+            if self.lang_exempt(scan):
                 continue
             for pat, label in ASSERTIVE_PATTERNS:
-                m = re.search(pat, ln)
+                m = re.search(pat, scan)
                 if m:
                     self.add("LANG-01", i + 1, ln,
                              "斷言式措辭「%s」：搜不到是搜尋結果，不存在是斷言，報告只能寫前者" % m.group(0))
@@ -1313,32 +1793,183 @@ class Checker(BaseChecker):
                 self.add("STRUCT-01", 1, "", "找不到〈%s〉區段（以 `## ` 標題辨識）" % label)
         self.check_tool_tier()
 
-    # ---- 數量 -----------------------------------------------------------
-    def check_counts(self):
-        actual = len(self.rep.candidates)
-        if self.rep.declared_survived is None:
-            self.add(
-                "COUNT-01",
-                self.rep.sections[0]["line"] if self.rep.sections else 1,
-                "",
-                "找不到「生成 N 個 → 存活 M 個」宣告，無法核對候選數",
-            )
+    # ---- rgh-block：載體與結算（EXACT）------------------------------------
+    def _block_line(self, needle):
+        """把區塊內文裡的一段字對回檔案行號。找不到就退回圍欄那一行。"""
+        b = self.rep.raw_blocks[0] if self.rep.raw_blocks else None
+        if b is None or not needle:
+            return self.rep.block_line
+        for off, ln in enumerate(b["body"].splitlines()):
+            if needle in ln:
+                return b["start"] + 2 + off      # +1 圍欄行、+1 轉成 1-based
+        return self.rep.block_line
+
+    def _recon_declared(self):
+        """這一份是不是**真的**偵察模式報告。
+
+        豁免不能只靠一句宣告買到，否則「空預設清單」的關法就等於在旁邊開一扇門：
+        任何報告寫一行〈模式：偵察抽樣〉就能跳過第 1 步、照樣給判定。SKILL.md
+        〈偵察模式〉同時規定了那一份長什麼樣——`settlement` 的存活與已淘汰都是 0
+        （只輸出〔DONE?〕與〔待再查〕、全部進第三節、不做淘汰）。兩件都成立才算，
+        而第二件同時被 COUNT-01／RECON-01 對到散文的實際列數，所以它不是自我宣告。
+        """
+        declared = any(RECON_MODE_RE.match(strip_md(t)) for _n, t in self.rep.header_lines)
+        if not declared:
+            return False
+        st = self.rep.settlement
+        return bool(st) and self.rep.settlement_ok and st[1] == 0 and st[3] == 0
+
+    def _check_assumptions_present(self):
+        """空的 `assumptions` 是一個**明講出來的宣稱**，不是缺席——所以它查得動。
+
+        以前這裡什麼都沒有：STRUCT-01 只要求二／三／四／六四個區段，沒有任何規則
+        要求 `assumptions` 非空，於是刪掉第一節的每一條預設、把 `assumptions` 寫成 `[]`、
+        把唯一的 G3 候選改成 G1，整份報告就跳過了這個技能的第 1 步而離開碼 0。
+        這是**普通的偷懶**會掉進去的洞，不是對抗者才構造得出來的——第 1 步最貴，
+        而它是後面每一個 G3 的原料。
+        """
+        rep = self.rep
+        if rep.block is None or not rep.assumptions_ok:
+            return                       # 區塊本身讀不到／容器壞了，BLOCK-01 已經報過
+        if rep.block.get("assumptions"):
             return
-        if self.rep.declared_survived != actual:
-            self.add(
-                "COUNT-01",
-                self.rep.count_line,
-                self.rep.lines[self.rep.count_line - 1],
-                "宣告存活 %d 個，實際只有 %d 個候選區塊（### 候選 N）"
-                % (self.rep.declared_survived, actual),
-            )
-        if self.rep.declared_generated is not None and self.rep.declared_generated < self.rep.declared_survived:
-            self.add(
-                "COUNT-02",
-                self.rep.count_line,
-                self.rep.lines[self.rep.count_line - 1],
-                "生成數 %d 小於存活數 %d" % (self.rep.declared_generated, self.rep.declared_survived),
-            )
+        if self._recon_declared():
+            return                       # 偵察模式：明講沒跑第 1 步，空清單是誠實的
+        self.add("BLOCK-01", self._block_line("\"assumptions\""),
+                 rep.lines[self._block_line("\"assumptions\"") - 1]
+                 if 0 < self._block_line("\"assumptions\"") <= len(rep.lines) else "",
+                 "區塊的 `assumptions` 是空的——這是在宣稱本次一條預設都沒有盤出來，"
+                 "也就是 SKILL.md 第 1 步整步沒跑。第 1 步是後面 G3 的唯一原料，"
+                 "而它是這個流程最貴的一步，所以「跳過它」不能長得像通過。"
+                 "只有偵察模式可以交出空清單，而且要兩件事同時成立："
+                 "表頭〈模式〉逐字寫「偵察抽樣（非新穎性判定）」，"
+                 "且結算的存活與已淘汰都是 0（那一種明講自己不產生存活候選、不執行淘汰）。"
+                 "階 3 完全沒有檢索工具時**不是**這一種：預設照寫，"
+                 "status 一律 `impression`（SKILL.md 第 5 步）")
+
+    def check_block(self):
+        """抽出、解析、驗證 rgh-block，並把結果填進 rep（給下游規則用）。
+
+        **沒有區塊就是離開碼 1，不是警告、不是降級模式。** 第一節與結算的所有判斷
+        都只從區塊讀，沒有區塊就是這兩塊完全沒有被查過——而沒有被查過不能長得像通過。
+        留一條降級模式等於留一句「不想被查就別寫區塊」。
+        """
+        rep = self.rep
+        # **誰需要區塊**：缺口報告。地形報告沒有第一節的預設清單、也沒有候選結算，
+        # 所以它不寫區塊、也不會因為沒有區塊被判違規（SKILL.md〈rgh-block〉）。
+        # 這一行同時是這條規則唯一可以被削弱的地方：把它放寬成「沒有區塊就跳過」，
+        # 就是那條被否決掉的降級模式——而降級模式只是一句「不想被查就別寫區塊」。
+        if rep.mode != "gap":
+            return
+        if len(rep.raw_blocks) > 1:
+            lines = "、".join(str(b["start"] + 1) for b in rep.raw_blocks)
+            self.add("BLOCK-01", rep.raw_blocks[0]["start"] + 1,
+                     rep.lines[rep.raw_blocks[0]["start"]] if rep.raw_blocks[0]["start"] < len(rep.lines) else "",
+                     "整份報告找到 %d 個 `%s` 區塊（第 %s 行），必須恰好一個。"
+                     "**引用在範例裡的區塊也算一個**——這一條單獨就關掉「在檔案某處放一個算術"
+                     "自洽的假區塊、讓查核器讀到它而不是真的那一個」那一類誘餌"
+                     % (len(rep.raw_blocks), BLOCK_FENCE_INFO, lines))
+            return
+        if not rep.raw_blocks:
+            if rep.near_blocks:
+                b = rep.near_blocks[0]
+                self.add("BLOCK-01", b["start"] + 1,
+                         rep.lines[b["start"]] if b["start"] < len(rep.lines) else "",
+                         "這個圍欄區塊的內容看起來就是 rgh-block（它宣告了 "
+                         "`\"schema\": \"%s\"`），但圍欄標籤是 `%s`——必須**逐字**是 `%s`，"
+                         "查核器是照標籤找它的"
+                         % (BLOCK_SCHEMA_VERSION, b["info"], BLOCK_FENCE_INFO))
+                return
+            self.add("BLOCK-01", 1, "",
+                     "這份報告沒有 `%s` 區塊。第一節的預設清單與表頭的候選結算只從區塊讀，"
+                     "沒有區塊就是這兩塊完全沒有被查過——**沒有被查過不能長得像通過**。"
+                     "寫法見 SKILL.md〈第 5 步〉的〈rgh-block〉小節：放在第七節之後、"
+                     "不加區段標題、圍欄標籤逐字寫 `%s`。散文一個字都不必改"
+                     % (BLOCK_FENCE_INFO, BLOCK_FENCE_INFO))
+            return
+
+        b = rep.raw_blocks[0]
+        rep.block_line = b["start"] + 1
+        if not b["closed"]:
+            self.add("BLOCK-01", rep.block_line, rep.lines[b["start"]],
+                     "`%s` 區塊沒有收尾的三個反引號，整份檔案的其餘部分都被吃進區塊裡"
+                     % BLOCK_FENCE_INFO)
+            return
+        try:
+            data = json.loads(b["body"])
+        except ValueError as exc:
+            lineno = getattr(exc, "lineno", None)
+            colno = getattr(exc, "colno", None)
+            msg = getattr(exc, "msg", str(exc))
+            at = (b["start"] + 1 + lineno) if lineno else rep.block_line
+            self.add("BLOCK-01", at,
+                     rep.lines[at - 1] if 0 < at <= len(rep.lines) else "",
+                     "區塊不是合法 JSON：%s（第 %s 行第 %s 欄）。JSON 沒有形狀變體，"
+                     "所以這裡沒有「寬容」可談——解析不了就是解析不了"
+                     % (msg, lineno if lineno else "?", colno if colno else "?"))
+            return
+
+        problems = validate_block(data)
+        for check, loc, msg in problems:
+            self.add(check, self._block_line(loc), loc or "", msg)
+
+        rep.block = data if isinstance(data, dict) else None
+        if rep.block is None:
+            return
+        st = rep.block.get("settlement")
+        if isinstance(st, dict) and all(_is_int(st.get(k)) and st[k] >= 0 for k in SETTLEMENT_KEYS):
+            nums = tuple(st[k] for k in SETTLEMENT_KEYS)
+            rep.settlement = nums
+            # 算術不成立時 settlement_ok 維持 False：BLOCK-01 已經說了結算是壞的，
+            # 再拿一個壞掉的數字去跟散文列數比對，只會把一個缺陷變成三句話，
+            # 而其中兩句會把作者送去改沒有壞的東西。
+            rep.settlement_ok = nums[0] == nums[1] + nums[2] + nums[3]
+        ass = rep.block.get("assumptions")
+        if isinstance(ass, list):
+            rep.assumptions_ok = True
+            bad = set()
+            for check, loc, _msg in problems:
+                if check == "ASSUM-01" and loc:
+                    bad.add(loc)
+            for e in ass:
+                if not isinstance(e, dict):
+                    continue
+                aid = e.get("id")
+                if isinstance(aid, str):
+                    # **NFKC 再進這個集合。** 它唯一的用途是閉嘴（下游別再指著一個
+                    # 已經被 ASSUM-01 指過的東西），而全形數字寫的 `A１` 正是最需要
+                    # 閉嘴的那一種：containment 那一側會 NFKC，原字串比對那一側不會，
+                    # 於是同一個編號在兩邊長得不一樣，反向掃描與 G3 查表各報一筆，
+                    # 三句話沒有一句提到那位數字。形狀不合由 ASSUM-01 一句講完。
+                    rep.block_declared_ids.add(
+                        unicodedata.normalize("NFKC", aid).strip().upper())
+                if not isinstance(aid, str) or not BLOCK_AID_RE.match(aid):
+                    continue
+                rec = dict(e)
+                rec["_line"] = self._block_line("\"id\": \"%s\"" % aid)
+                rec["_clean"] = ("\"id\": \"%s\"" % aid) not in bad
+                rep.assumptions.append(rec)
+        # 空清單是一個宣稱，不是缺席——放在最後，因為它要用上面剛填好的結算。
+        self._check_assumptions_present()
+
+    # ---- 數量：區塊說存活幾個，第二節就要寫得出幾個 -----------------------
+    def check_counts(self):
+        """數字來自**區塊**，列數來自**散文**——兩個不同的來源，所以這是一次真的交叉比對。
+
+        以前兩邊都是同一份散文（第二節標題的「生成 N → 存活 M」對上候選區塊數），
+        而那一行還是「全文第一個 match」找到的，於是一行 HTML 註解就能決定它讀到什麼。
+        """
+        rep = self.rep
+        if not rep.settlement_ok:
+            return                       # 沒有區塊或結算本身壞掉，BLOCK-01 已經報過
+        actual = len(rep.candidates)
+        survived = rep.settlement[1]
+        if survived != actual:
+            self.add("COUNT-01", self._block_line("\"settlement\""),
+                     rep.lines[self._block_line("\"settlement\"") - 1],
+                     "區塊的結算寫存活 %d，第二節實際有 %d 個候選區塊（`### 候選 N（C0n）：…`）。"
+                     "兩個數字來自不同的地方——一個是區塊自己宣告的，一個是散文裡真的寫出來的，"
+                     "對不上就是其中一邊漏了" % (survived, actual))
 
     # ---- 候選結算（二＋三＋四 要蓋住每一個生成出來的候選） ----------------
     def check_reconciliation(self):
@@ -1383,105 +2014,259 @@ class Checker(BaseChecker):
             else:
                 register(cid, r["_line"], "四、已淘汰", raw)
 
-        if rep.settlement is None:
-            lineno = rep.settlement_line or 1
-            raw = rep.lines[lineno - 1] if rep.settlement_line else ""
-            self.add("RECON-01", lineno, raw,
-                     "表頭缺少可解析的「**候選結算**：生成 N ＝ 存活 M ＋ 待確認 P ＋ 已淘汰 Q」")
+        # 結算的四個數字來自區塊；算術本身由 BLOCK-01 驗（生成 ＝ 存活 ＋ 待確認 ＋ 已淘汰），
+        # 存活那一項由 COUNT-01 對到第二節。這裡只剩下面兩項對到第三、四節的列數。
+        if not rep.settlement_ok:
             return
-
-        n, m, p, q = rep.settlement
-        lineno = rep.settlement_line
-        raw = rep.lines[lineno - 1]
-        if n != m + p + q:
-            self.add("RECON-01", lineno, raw,
-                     "候選結算對不起來：生成 %d ≠ 存活 %d ＋ 待確認 %d ＋ 已淘汰 %d（＝%d），差額就是被靜默丟掉的候選"
-                     % (n, m, p, q, m + p + q))
-        if m != len(rep.candidates):
-            self.add("RECON-01", lineno, raw,
-                     "結算寫存活 %d，第二節實際有 %d 個候選區塊" % (m, len(rep.candidates)))
+        _n, _m, p, q = rep.settlement
+        lineno = self._block_line("\"settlement\"")
+        raw = rep.lines[lineno - 1] if 0 < lineno <= len(rep.lines) else ""
         if p != len(rep.pending_rows):
             self.add("RECON-01", lineno, raw,
-                     "結算寫待確認 %d，第三節實際有 %d 列" % (p, len(rep.pending_rows)))
+                     "區塊結算寫待確認 %d，第三節實際有 %d 列" % (p, len(rep.pending_rows)))
         if q != len(rep.kill_rows):
             self.add("RECON-01", lineno, raw,
-                     "結算寫已淘汰 %d，第四節實際有 %d 列" % (q, len(rep.kill_rows)))
+                     "區塊結算寫已淘汰 %d，第四節實際有 %d 列" % (q, len(rep.kill_rows)))
 
-    # ---- 第一節的預設 ----------------------------------------------------
-    @staticmethod
-    def _frame_advice(a, problem):
-        """取樣框不完整時該怎麼辦——本輪自己盤的與承接來的，退路不一樣。
+    # ---- 錨點：區塊寫的每一段字，散文裡都要找得到 -------------------------
+    #
+    # **錨點問的是三個問題，不是一個。** SKILL.md〈rgh-block〉的錨點規則逐字寫的是
+    # 「每條預設的 `anchor`（那一句話）→ 出現在**第一節那條預設行上**」、
+    # 「`impression` → **該預設行**要有〔印象，未驗證〕」。以前查核器只問了最寬的那一版
+    # （「文件裡有沒有這個字串」），於是兩種構造全綠，而重構之前的那棵樹兩種都會紅：
+    #   1. 把整條預設行從第一節搬進某個候選的〈可行性〉段落——字都在，位置全錯；
+    #   2. 把〔印象，未驗證〕從 A3 撕下來貼到 framed 的 A1 上——讀者看到的效力是反的。
+    # 差別不在寬容度，在**問題問得夠不夠具體**：三個問題的答案都只有「有／沒有」，
+    # 所以沒有一個會靜默丟東西；它們只是把「文件裡某處」收斂成「那一條的那一行、
+    # 而且那一行不在別節裡」。
+    #
+    # 這一節（consensus）與「認不出來的一節」不算外人：節名被改寫而形狀也認不回來時，
+    # 預設行落在一個未分類的區段裡，那是既有的降級路徑，不是搬家。
+    FOREIGN_HOST_KINDS = set(SECTION_KIND_LABEL) - set(("consensus", "other"))
 
-        自己盤的退回〔印象，未驗證〕；承接來的退回〔承接自地形 W…〕，**不是**
-        〔印象，未驗證〕。兩者效力相同（都不得當 G3 輸入），但把承接的標籤改寫掉，
-        讀者就再也看不出這一條是別份報告帶進來的，而那正是〈地形來源〉那一行要交代的事。
+    # 效力標籤：寫在**哪一條**上是有意義的，所以每一個都同時是正向與反向錨點。
+    # （標籤, 必須帶它的 status, 不得帶它的 status, 人話）
+    # `inherited` 刻意不在〔印象，未驗證〕的禁用側：SKILL.md〈互鎖的例外〉要求那一行
+    # 保持〔承接自地形 W…〕，而它照規格會寫「效力同〔印象，未驗證〕」——那是比較，不是改標。
+    STATUS_DECORATIONS = (
+        ("〔印象，未驗證〕", ("impression",), ("framed", "inherited_framed"), "印象級"),
+        ("承接自地形", ("inherited", "inherited_framed"), ("framed", "impression"), "承接自地形"),
+        ("已補取樣框", ("inherited_framed",), ("framed", "impression", "inherited"), "已補取樣框"),
+    )
+
+    def _anchors(self):
+        """由區塊**算出**期望字串。回傳 [(字串, 這是什麼, 定位用的區塊片段, 綁哪一條預設)]。
+
+        第四項是這一輪加的：`None` 代表這段字該出現在文件的某處（表頭那兩行），
+        `A<n>` 代表它該出現在**那一條預設自己的那一行上**。分開才問得出上面第 2 種構造。
         """
-        if a["inherited"]:
-            return ("%s。這一條標了〔已補取樣框〕，就要與本輪量化的預設同標準：五個數字補齊，"
-                    "或把標籤改回〔承接自地形 W…〕退回未補框（效力同〔印象，未驗證〕、不得作為 G3 輸入）"
-                    "——不要改寫成〔印象，未驗證〕，來源要留給讀者看得見" % problem)
-        return "量化預設的%s；未量化的預設一律標〔印象，未驗證〕" % problem
+        rep = self.rep
+        out = []
+        if rep.settlement_ok:
+            g, s, p, k = rep.settlement
+            loc = "\"settlement\""
+            out.append(("生成 %d ＝ 存活 %d ＋ 待確認 %d ＋ 已淘汰 %d" % (g, s, p, k),
+                        "表頭的〈候選結算〉那一行", loc, None))
+            out.append(("生成 %d 個 → 存活 %d 個" % (g, s),
+                        "第二節標題括號裡的那兩個數字", loc, None))
+        for a in rep.assumptions:
+            if not a.get("_clean"):
+                continue        # 這一條本身就不合 schema，ASSUM-01 已經報過
+            aid = a["id"]
+            loc = "\"id\": \"%s\"" % aid
+            status = a.get("status")
+            out.append(("預設 %s" % aid, "第一節的預設編號", loc, aid))
+            out.append((a.get("anchor") or "", "預設 %s 的那一句話" % aid, loc, aid))
+            if status == "impression":
+                out.append(("〔印象，未驗證〕", "預設 %s 的效力標籤" % aid, loc, aid))
+            if status in ("inherited", "inherited_framed"):
+                out.append(("承接自地形 %s" % a.get("wall"), "預設 %s 的來源標籤" % aid, loc, aid))
+                # 這一個**是**文件層的：它指的是表頭那一行，不是預設行。
+                out.append(("地形來源", "表頭的〈地形來源〉那一行", loc, None))
+            if status == "inherited":
+                fams = a.get("families") or []
+                out.append(("支撐家族 %s" % "、".join(fams), "預設 %s 的支撐家族" % aid, loc, aid))
+            if status == "inherited_framed":
+                out.append(("已補取樣框", "預設 %s 的補框標籤" % aid, loc, aid))
+            f = a.get("frame")
+            if isinstance(f, dict) and not _frame_problems(f):
+                out.append(("標題層掃描 %s 篇" % f["N"], "預設 %s 的 N" % aid, loc, aid))
+                out.append((f["query"], "預設 %s 的檢索詞" % aid, loc, aid))
+                out.append(("limit %s" % f["limit"], "預設 %s 的 limit" % aid, loc, aid))
+                out.append(("摘要層精讀 %s 篇" % f["Mp"], "預設 %s 的 M′" % aid, loc, aid))
+                out.append(("pick 索引 %s" % ",".join(str(x) for x in f["pick"]),
+                            "預設 %s 的 pick 索引" % aid, loc, aid))
+                out.append(("其中 %s 篇沿用此預設" % f["M"], "預設 %s 的 M" % aid, loc, aid))
+                out.append((f["refute_query"], "預設 %s 的推翻性檢索詞" % aid, loc, aid))
+                out.append(("回傳 %s 篇" % f["Kp"], "預設 %s 的 K′" % aid, loc, aid))
+                out.append(("讀後 %s 篇確實檢驗過此預設" % f["K"], "預設 %s 的 K" % aid, loc, aid))
+                out.append(("樣本來源：%s" % f["sample"], "預設 %s 的樣本來源" % aid, loc, aid))
+        return [(t, why, loc, aid) for t, why, loc, aid in out if t]
 
-    def check_assumptions(self):
-        for s in self.rep.assumption_strays:
-            # 「看起來是一條預設、卻讀不出來」。以前這種行是靜默丟掉的，於是：
-            # 這一條不被算進去、不被檢查，報告照樣綠；而它若被 G3 指到，
-            # 訊息會說「第一節沒有這一條」——把讀者送去找一個不存在的缺漏。
-            self.add("ASSUM-01", s["line"], s["text"],
-                     "這一行看起來是一條預設，卻不是讀得出來的形式，因此**整條沒有被檢查**。"
-                     "固定寫法：`- 預設 A1〔可選的來源標籤〕：〈一句話〉｜標題層掃描 …`"
-                     "（行首可以是 `-` 或 `> `，編號與冒號之間可以有一串〔…〕標籤，"
-                     "冒號也可以用全形直線；除此之外的形狀讀不到）。"
-                     "若這一行其實只是**在講**那幾條預設的散文，那這是一次刻意留下的假紅燈"
-                     "——把句子改成不以「預設 A1」開頭即可。理由見 ASSUM_LOOKALIKE_RE 的註解："
-                     "假紅燈花讀者五分鐘，假綠燈是查核器對沒讀過的文件說通過")
+    def _assumption_lines(self):
+        """每個預設編號在散文裡落在哪幾行（0-based，可能不只一行）。
+
+        這是 token 掃描，不是預設行的解析——它只回答「這一行有沒有提到 預設 A<n>」，
+        與第一節的形狀定位、與反向覆蓋掃描是同一個問題。多認幾行是安全的：
+        底下每一條規則問的都是「**有沒有一行**同時滿足」，多一個候選行只會讓紅燈更難出現。
+        """
+        cached = getattr(self, "_aid_lines_cache", None)
+        if cached is not None:
+            return cached
+        out = {}
+        for i, ln in enumerate(self.rep.prose_lines_norm):
+            if not ln.strip():
+                continue
+            for m in PROSE_AID_RE.finditer(ln):
+                out.setdefault("A" + m.group(1), []).append(i)
+        self._aid_lines_cache = out
+        return out
+
+    def _section_kind_at(self, idx):
+        for s in self.rep.sections:
+            if s["start"] <= idx < s["end"]:
+                return s["kind"]
+        return None
+
+    def _anchor_missing(self, text, why, loc):
+        self.add("ANCHOR-01", self._block_line(loc), text[:120],
+                 "區塊寫了「%s」（%s），散文裡找不到逐字相同的一份。"
+                 "比對前兩邊都做過正規化（全形轉半形、去掉粗體與反引號、空白摺疊、大小寫不計），"
+                 "所以這不是標點的問題——是區塊與讀者看到的內容不一致。"
+                 "**HTML 註解裡的字不算「出現在散文」**：藏在註解裡的漂亮數字騙不過這一條"
+                 % (text[:120], why))
+
+    def check_anchors(self):
+        rep = self.rep
+        if rep.block is None:
+            return                      # BLOCK-01 已經說了整個區塊讀不到
+        aid_lines = self._assumption_lines()
+        no_line = set()
+        for text, why, loc, aid in self._anchors():
+            norm = normalize_for_containment(text)
+            if aid is None:
+                if norm not in rep.prose_norm:
+                    self._anchor_missing(text, why, loc)
+                continue
+            lines = aid_lines.get(aid) or []
+            if not lines:
+                # 連 `預設 A<n>` 都沒有任何一行寫著＝這一條整條不在散文裡。
+                # 一個缺陷一句話：只報一次，這一條的其餘錨點閉嘴。
+                if aid not in no_line:
+                    no_line.add(aid)
+                    self._anchor_missing("預設 %s" % aid, "第一節的預設編號", loc)
+                continue
+            if any(norm in rep.prose_lines_norm[i] for i in lines):
+                continue
+            if norm not in rep.prose_norm:
+                self._anchor_missing(text, why, loc)
+                continue
+            self.add("ANCHOR-01", lines[0] + 1, rep.lines[lines[0]],
+                     "區塊寫了「%s」（%s）。這段字在文件裡找得到，"
+                     "但**不在寫著「預設 %s」的那一行上**（第 %s 行）。"
+                     "SKILL.md〈rgh-block〉的錨點規則是「出現在第一節那條預設行上」，"
+                     "不是「出現在文件的某處」——散在別處的字讀者不會把它讀成這一條預設的內容，"
+                     "而區塊卻拿它當作對得上"
+                     % (text[:120], why, aid, "、".join(str(i + 1) for i in lines)))
+        self._check_assumption_hosts(aid_lines)
+        self._check_status_decorations(aid_lines)
+        self._check_reverse_coverage()
+
+    def _check_assumption_hosts(self, aid_lines):
+        """那一行**落在哪一節**：整條預設行搬進候選、淘汰表或檢索紀錄裡，字都在、位置全錯。
+
+        判準是「**至少有一行**不在別節裡」，不是「每一行都要在第一節」——
+        候選的〈缺口類型〉本來就可能順手寫一句「反轉預設 A1」，那種交叉引用不該變成紅燈。
+        只有當這個編號**每一次**出現都落在一個已經被認成別種區段的地方時才報：
+        那時第一節裡真的沒有這一條。
+        """
         for a in self.rep.assumptions:
-            raw = self.rep.lines[a["line"] - 1]
-            if not a["aid"]:
-                self.add("ASSUM-01", a["line"], raw,
-                         "預設沒有編號（應寫成「預設 A1：…」）——第 3 步的 G3 與第六節的推翻性檢索都靠它對帳")
-            if a["inherited"] and not a["framed"]:
-                # 承接自地形報告、尚未補取樣框。地形模式在定義上就沒有跑過
-                # N／M′／M／K′／K（它的錨定文獻是代表性的，不是抽樣的），
-                # 要求它補一個取樣框，等於逼報告去編一組沒跑過的數字。
-                # 它的效力等同〔印象，未驗證〕，而那個效力由 ASSUM-02 落實在
-                # 「不得當 G3 輸入」上——不是在這裡罰它沒有取樣框。
+            if not a.get("_clean"):
                 continue
-            if a["impression"]:
-                continue  # 印象級預設本來就不必量化，但也不得當 G3 輸入（ASSUM-02）
-            if a["missing"]:
-                self.add("ASSUM-01", a["line"], raw,
-                         self._frame_advice(a, "取樣框缺少欄位：%s" % "、".join(a["missing"])))
+            aid = a["id"]
+            lines = aid_lines.get(aid) or []
+            if not lines:
+                continue            # check_anchors 已經說了它整條不在散文裡
+            hosts = [(i, self._section_kind_at(i)) for i in lines]
+            if any(k not in self.FOREIGN_HOST_KINDS for _i, k in hosts):
                 continue
-            num = a["numbers"]
-            if num.get("Mp", 0) < 3:
-                self.add("ASSUM-01", a["line"], raw,
-                         self._frame_advice(a, "摘要層精讀只有 %d 篇（M′ < 3）" % num.get("Mp", 0)))
-            if num.get("M", 0) > num.get("Mp", 0):
-                self.add("ASSUM-01", a["line"], raw,
-                         "沿用篇數 M=%d 大於摘要層精讀 M′=%d——沿用只能在讀過摘要的樣本裡數"
-                         % (num.get("M", 0), num.get("Mp", 0)))
-            if num.get("K", 0) > num.get("Kp", 0):
-                self.add("ASSUM-01", a["line"], raw,
-                         "推翻性檢索讀後 K=%d 大於回傳 K′=%d" % (num.get("K", 0), num.get("Kp", 0)))
+            i, kind = hosts[0]
+            self.add("ANCHOR-01", i + 1, self.rep.lines[i],
+                     "「預設 %s」在散文裡只出現在%s裡（第 %d 行），第一節沒有這一條。"
+                     "第 1 步的預設清單要留在第一節：那一節是接手的人（下一輪、或缺口獵捕）"
+                     "唯一會去讀的地方，而把整條搬進別節，區塊的每一個錨點照樣對得上——"
+                     "這正是 containment 只問「文件裡有沒有」時看不見的那一種"
+                     % (aid, SECTION_SHORT_NAME.get(kind, SECTION_KIND_LABEL.get(kind, kind)),
+                        i + 1))
+
+    def _check_status_decorations(self, aid_lines):
+        """效力標籤的**反面**：不該帶這個標籤的預設行上，不得出現這個標籤。
+
+        正面（該有的要有）由 `_anchors` 出題。少了反面，把〔印象，未驗證〕從 A3 撕下來
+        貼到 framed 的 A1 上，只會報「A3 那一行少了標籤」一句，而讀者眼前的 A1 被標成
+        印象級、A3 沒有標——兩條都被讀錯，查核器卻只說了一半。
+        """
+        for a in self.rep.assumptions:
+            if not a.get("_clean"):
+                continue
+            status = a.get("status")
+            for label, want, forbid, human in self.STATUS_DECORATIONS:
+                if status not in forbid:
+                    continue
+                needle = normalize_for_containment(label)
+                for i in aid_lines.get(a["id"], []):
+                    if needle not in self.rep.prose_lines_norm[i]:
+                        continue
+                    self.add("ANCHOR-01", i + 1, self.rep.lines[i],
+                             "「預設 %s」那一行寫著「%s」，區塊卻說它的 `status` 是 `%s`。"
+                             "這個標籤只屬於 status 是 %s 的預設——效力是讀者唯一看得到的東西，"
+                             "掛錯一條，兩條都被讀錯（這一條被讀成%s，真正是%s的那一條沒有標記）"
+                             % (a["id"], label, status,
+                                "／".join("`%s`" % s for s in want), human, human))
+                    break
+
+    def _check_reverse_coverage(self):
+        """反向：散文裡寫了 `預設 A<n>`，區塊裡卻沒有這一條。
+
+        containment 只問 區塊→散文，所以一條「區塊整個漏掉」的預設會安靜地通過。
+        這是本次唯一還在對散文做 token 掃描的地方，而它的失效方向是**假紅燈**
+        （一句剛好提到「預設 A9」的散文會被要求進區塊），不是假綠燈。
+        它抓不到的是措辭漂移過的那一條（`前提 A9`）——那一條會落進「隱形」，
+        而不是落進「假宣稱」：它不在區塊裡，就不能餵給 G3，referential integrity 會擋。
+        """
+        rep = self.rep
+        if not rep.assumptions_ok:
+            # `assumptions` 不是一個陣列。BLOCK-01 已經說了那個容器壞了，這裡再逐條
+            # 說「區塊裡沒有這一條」只會把一個缺陷變成 N 句話，而那 N 句都指錯方向。
+            return
+        known = set(a["id"] for a in rep.assumptions if a.get("id"))
+        known |= rep.block_declared_ids
+        seen = set()
+        for i, ln in enumerate(rep.scan_lines):
+            if not ln.strip():
+                continue
+            for m in PROSE_AID_RE.finditer(normalize_for_containment(ln)):
+                aid = "A" + m.group(1)
+                if aid in known or aid in seen:
+                    continue
+                seen.add(aid)
+                self.add("ANCHOR-01", i + 1,
+                         rep.lines[i] if i < len(rep.lines) else "",
+                         "散文寫了「預設 %s」，區塊的 `assumptions` 裡卻沒有這一條。"
+                         "兩邊是一對一：區塊漏掉一條，那一條的取樣框、效力與 G3 資格就完全沒有被查過"
+                         % aid)
 
     def check_g3_inputs(self):
+        """G3 反轉的是誰，從**候選欄位**（散文）讀；那一條有沒有資格，從**區塊**讀。
+
+        以前兩件事都要從第一節那一行的括號標籤解析出來，而那一行的形狀正是四輪拉鋸的戰場。
+        現在效力是一個列舉值，換寫法不再改變任何一條規則的適用性。
+        """
+        if self.rep.block is None or not self.rep.assumptions_ok:
+            return
         by_id = {}
         for a in self.rep.assumptions:
-            if a["aid"]:
-                by_id.setdefault(a["aid"], a)
-        # 讀不出來的那些預設行，編號還是撈得到。撈它是為了**閉嘴**：ASSUM-01 已經
-        # 指著那一行說「這一條讀不出來」，這裡若再說一次「第一節沒有這一條」，
-        # 就是把讀者送去找一個不存在的缺漏——正是這次要消滅的那句話。
-        stray_ids = set()
-        for s in self.rep.assumption_strays:
-            m = re.search(r"預設\s*([A-Za-z]?\d{1,3})", strip_md(s["text"]))
-            if not m:
-                continue
-            sid = m.group(1).upper()
-            if sid and sid[0].isdigit():
-                sid = "A" + sid
-            stray_ids.add(sid)
+            by_id.setdefault(a["id"], a)
         for c in self.rep.candidates:
             if "gap_type" not in c["fields"]:
                 continue
@@ -1497,24 +2282,27 @@ class Checker(BaseChecker):
             for ref in refs:
                 a = by_id.get(ref)
                 if a is None:
-                    if ref in stray_ids:
-                        continue  # 那一行在第一節裡，只是讀不出來——ASSUM-01 已經報過
+                    if ref in self.rep.block_declared_ids:
+                        continue      # 那一條在區塊裡，只是形狀壞了——ASSUM-01 已經報過
                     self.add("ASSUM-02", lineno, raw,
-                             "G3 候選指到第一節沒有的預設 %s" % ref)
-                elif a["inherited"] and not a["framed"]:
-                    # 這一條**在**第一節裡，只是還沒付檢索成本。訊息一定要講清楚是哪一種：
+                             "G3 候選指到區塊 `assumptions` 裡沒有的預設 %s——"
+                             "第一節寫了而區塊漏掉的話，ANCHOR-01 會指著那一行" % ref)
+                    continue
+                status = a.get("status")
+                if status == "inherited":
+                    # 這一條**在**報告裡，只是還沒付檢索成本。訊息一定要講清楚是哪一種：
                     # 說它「不存在」會把讀者送去找一個不存在的缺漏，而真正的動作
                     # 是對這一條（只有這一條）補跑取樣框。
                     self.add("ASSUM-02", lineno, raw,
-                             "G3 候選的輸入 %s 是〔承接自地形 W…〕、尚未補取樣框（見第 %d 行）"
-                             "——它在第一節裡，但地形模式沒有跑過 N／M′／M／K′／K，效力等同"
-                             "〔印象，未驗證〕，不得長出候選。要反轉它就只對這一條補跑取樣框，"
-                             "補完標成〔承接自地形 W…，已補取樣框〕再進 G3"
-                             % (ref, a["line"]))
-                elif a["impression"]:
+                             "G3 候選的輸入 %s 的 `status` 是 `inherited`（承接自地形 %s、尚未補取樣框，"
+                             "見第 %d 行）——它在報告裡，但地形模式沒有跑過 N／M′／M／K′／K，"
+                             "效力等同〔印象，未驗證〕，不得長出候選。要反轉它就只對這一條補跑取樣框，"
+                             "補完把 status 改成 `inherited_framed`、散文標成〔承接自地形 W…，已補取樣框〕再進 G3"
+                             % (ref, a.get("wall"), a["_line"]))
+                elif status == "impression":
                     self.add("ASSUM-02", lineno, raw,
-                             "G3 候選的輸入 %s 標了〔印象，未驗證〕——印象級預設不得長出候選（見第 %d 行）"
-                             % (ref, a["line"]))
+                             "G3 候選的輸入 %s 的 `status` 是 `impression`——印象級預設不得長出候選"
+                             "（見第 %d 行）" % (ref, a["_line"]))
 
     # ---- 判定詞彙 --------------------------------------------------------
     # 括號態：SKILL.md 用〔…〕標記中繼狀態，後面常接補充語
@@ -1733,6 +2521,26 @@ class Checker(BaseChecker):
                 if not hit:
                     self.add("TRACE-01", lineno, text,
                              "%s 在〈檢索紀錄〉裡沒有對應列——%s" % (label, remedy))
+            # 第一節預設的互鎖。**豁免與否改由區塊的 status 決定**，不再從那一行的
+            # 括號標籤讀出來：framed／inherited_framed 付過檢索成本，要有
+            # `第1步-推翻A<n>` 那一列；impression／inherited 沒付過，逼它附紀錄
+            # 就是逼報告去寫一次沒跑過的搜尋。豁免的**理由一個字都沒變**，
+            # 變的只是判斷依據。
+            cells = [strip_md(r.get("candidate", "")) for r in self.rep.trace_rows]
+            for a in self.rep.assumptions:
+                if a.get("status") not in ("framed", "inherited_framed"):
+                    continue
+                if not a.get("_clean"):
+                    continue                  # 這一條本身不合 schema，ASSUM-01 已經報過
+                want = "第1步-推翻%s" % a["id"]
+                if any(want in re.sub(r"\s+", "", c) for c in cells):
+                    continue
+                self.add("TRACE-01", a["_line"], "\"id\": \"%s\"" % a["id"],
+                         "預設 %s 的 `status` 是 `%s`（跑過或補過取樣框），"
+                         "第六節卻沒有標成「%s」的對應列——宣稱跑過那一輪推翻性檢索，"
+                         "就要拿得出那一列。真的沒跑就把 status 改成 `%s`"
+                         % (a["id"], a.get("status"), want,
+                            "impression" if a.get("status") == "framed" else "inherited"))
         for r in self.rep.trace_rows:
             q = r.get("query", "")
             if is_placeholder(q) or not extract_queries(q):
@@ -1757,12 +2565,14 @@ class Checker(BaseChecker):
                          "報告已宣告未執行檢索，卻仍淘汰了候選（判定「%s」）" % v)
 
     def run(self):
+        # 區塊先驗：它填 rep.settlement／rep.assumptions，下游好幾條規則要用。
+        self.check_block()
+        self.check_anchors()
         self.check_parse()
         self.check_sections()
         self.check_structure()
         self.check_counts()
         self.check_reconciliation()
-        self.check_assumptions()
         self.check_g3_inputs()
         self.check_verdicts()
         self.check_survivor_evidence()
@@ -1799,6 +2609,35 @@ class LandscapeChecker(BaseChecker):
             return False
         return s.split("：", 1)[-1].strip() == LANDSCAPE_DISCLAIMER
 
+    # ---- 地形報告不寫區塊：寫了就是一塊沒有人讀的地方 ---------------------
+    def check_stray_block(self):
+        """SKILL.md〈rgh-block〉：地形報告沒有第一節的預設清單、也沒有候選結算，
+        **不寫區塊**。所以這裡出現一個區塊不是「多寫了一份沒用的東西」——
+        它是文件裡一塊不會被驗證的區域（`LandscapeChecker` 沒有 `check_block`，
+        也不該有：驗一個規格說不存在的東西，等於默認它可以存在）。
+
+        兩件事分開做，理由不同：這一條說「這個區塊本身不該在」，
+        `PARSE-01` 的圍欄掃描說「而且它裡面裝了報告結構」。前者是規格，後者是掃描；
+        一個區塊可以只犯前者（裡面只有合法 JSON），所以兩條都要在。
+        """
+        # 波浪號寫的區塊也算。`find_fenced_blocks` 只認反引號是刻意的（見它的
+        # docstring），但那個理由屬於 BLOCK-01 的「整份恰好一個」，不屬於這一條：
+        # 這裡問的是「有沒有一塊不受查核的區域」，而 `~~~json rgh-block` 在讀者
+        # 眼裡跟反引號那種一模一樣。只認一種就是留一個一字元的繞道。
+        tilde = [{"start": b["start"], "info": b["info"]}
+                 for b in _find_fences_for_scan(self.rep.lines)
+                 if b["char"] == "~" and b["info"] == BLOCK_FENCE_INFO]
+        for b in list(self.rep.raw_blocks) + list(self.rep.near_blocks) + tilde:
+            lineno = b["start"] + 1
+            self.add("BLOCK-01", lineno,
+                     self.rep.lines[b["start"]] if b["start"] < len(self.rep.lines) else "",
+                     "地形報告裡出現 `%s` 區塊。SKILL.md〈rgh-block〉寫著地形報告不寫區塊"
+                     "（它沒有第一節的預設清單、也沒有候選結算），所以**沒有任何規則會驗它**"
+                     "——它是這份文件裡一塊不受查核的區域，而不受查核的區域裝什麼都不會有人說話。"
+                     "第一節的預設要交棒給缺口獵捕，走的是第六節的牆表；"
+                     "要寫區塊就把這一份寫成缺口報告"
+                     % (b["info"] or BLOCK_FENCE_INFO))
+
     # ---- 表頭：報告要自己講出它是什麼、不做什麼 ---------------------------
     def check_header(self):
         mode_declared = False
@@ -1824,7 +2663,8 @@ class LandscapeChecker(BaseChecker):
     # ---- 模式混淆：地形報告裡不得有新穎性判定詞彙 -------------------------
     def check_mode_vocabulary(self):
         for i, ln in enumerate(self.rep.lines):
-            token = NOVELTY_TOKEN_RE.search(ln)
+            scan = self.rep.scan_lines[i] if i < len(self.rep.scan_lines) else ln
+            token = NOVELTY_TOKEN_RE.search(scan)
             if token:
                 self.add("LVOCAB-01", i + 1, ln,
                          "地形報告出現新穎性判定詞彙「%s」。這個模式不淘汰、不判新穎性，"
@@ -1969,6 +2809,7 @@ class LandscapeChecker(BaseChecker):
                          "它被寫下來然後不見了，接手的缺口獵捕拿不到它" % (aid, fid))
 
     def run(self):
+        self.check_stray_block()
         self.check_parse()
         self.check_sections()
         self.check_header()
@@ -2023,14 +2864,15 @@ def main(argv=None):
                 "glance_rows": len(rep.glance_rows),
                 "wall_rows": len(rep.wall_rows),
                 "candidate_sections": len(rep.candidates),
-                "declared_generated": rep.declared_generated,
-                "declared_survived": rep.declared_survived,
+                # 區塊：包裝這支工具的人要能分辨「沒有區塊」與「區塊在但壞了」。
+                "rgh_blocks": len(rep.raw_blocks),
+                "block_ok": rep.block is not None,
                 "settlement": list(rep.settlement) if rep.settlement else None,
+                "settlement_reconciles": rep.settlement_ok,
                 "assumptions": len(rep.assumptions),
                 # 讀不進來的東西也要出現在解析摘要裡：包裝這支工具的人要能分辨
                 # 「乾淨」與「根本沒讀到」，而那正是靜默丟行最擅長偽裝的差別。
-                "unreadable": (len(rep.table_strays) + len(rep.head_strays)
-                               + len(rep.assumption_strays)),
+                "unreadable": len(rep.table_strays) + len(rep.head_strays),
                 # 靠內容才認出來的區段數。它與 unreadable 是不同的東西：那些行**讀得到**，
                 # 是節名不對。包裝這支工具的人要能分辨「格式漂了」與「內容有問題」。
                 "renamed_sections": len(rep.section_renames),
@@ -2055,6 +2897,11 @@ def main(argv=None):
     else:
         print("  候選區塊 %d ／ 待確認列 %d ／ 淘汰列 %d ／ 檢索紀錄列 %d"
               % (len(rep.candidates), len(rep.pending_rows), len(rep.kill_rows), len(rep.trace_rows)))
+        print("  rgh-block %d 個／預設 %d 條／結算 %s"
+              % (len(rep.raw_blocks), len(rep.assumptions),
+                 ("＝".join(["生成 %d" % rep.settlement[0],
+                             "存活 %d ＋ 待確認 %d ＋ 已淘汰 %d" % rep.settlement[1:]])
+                  if rep.settlement else "（讀不到）")))
     if not findings:
         print("\n✅ 格式無違規。")
         print("   注意：本檢查只驗形式，不驗真假——文獻是否存在、是否被撤稿、")

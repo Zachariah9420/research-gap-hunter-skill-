@@ -62,34 +62,64 @@ EXPECTED = [
     # 承接未補框的預設躺在第一節、沒有餵給任何 G3：ASSUM-01 不得跟它要取樣框，
     # TRACE-01 也不得跟它要第六節的對應列（它不是這一輪搜出來的）。
     ("inherited_unframed_ok.md", 0, set()),
-    # SKILL.md 第 1 步是用**引用區塊**展示預設行的格式的，而讀者照抄的是看得到的形狀。
-    # 這兩份把「規格自己顯示得出來、解析器卻讀不到」的兩種形狀釘住：引用區塊開頭、
-    # 以及兩個相鄰的括號標籤。兩份都必須是綠的，而且是**有內容的綠**——被改寫的那一條
-    # 正是 G3 候選反轉的那一條，讀不到它會轉紅（見下面的解析回讀）。
+    # 預設行的**形狀**現在不決定任何一條規則的適用性（效力與取樣框都從 rgh-block 讀，
+    # 散文那一行只被問 containment）。這一份把那句話釘成可執行的東西：A3 改寫成
+    # SKILL.md 第 1 步自己用來展示的引用區塊形狀，而它正是 C02 反轉的那一條，
+    # 所以綠燈是**有內容的綠**——見下面的解析回讀。
     ("assumption_blockquote_ok.md", 0, set()),
-    ("assumption_two_brackets_ok.md", 0, set()),
-    # evals/README.md 承諾標籤括號收 〔〕／【】／［］／（） 四對，而全形 ［ 與半形 [
-    # 是不同的字元。這一份把那個承諾釘成可執行的東西：它必須是綠的，而且是**有內容的綠**
-    # ——A3 是 C02 反轉的那一條，讀不到它會轉紅（見下面的解析回讀）。
-    ("assumption_fullwidth_bracket_ok.md", 0, set()),
-    # 這一份原本是綠的（原名 assumption_prose_mention_ok.md），釘的是「散文不得被
-    # 報成讀不到」。那條容忍度是靠 lookalike 樣式的一個結構字元 lookahead 換來的，
-    # 而同一個 lookahead 讓 `- 預設 A2——〈…〉` 對兩個樣式都隱形（見
-    # assumption_em_dash_separator.md）——一次假紅燈換回一個假綠燈。
-    # 取捨已定並寫進 ASSUM_LOOKALIKE_RE 的註解：假紅燈花讀者五分鐘，假綠燈是查核器
-    # 對沒讀過的文件說通過。所以這一份現在是**刻意的紅**，不是回歸。
-    ("assumption_prose_mention.md", 1, {"ASSUM-01"}),
+    # SKILL.md〈偵察模式〉規定的第三種合規輸出：沒有跑第 1 步、不產生存活候選、
+    # 不執行淘汰，所以它是**唯一**可以交出 `"assumptions": []` 的缺口報告。
+    # 它必須是綠的：那條豁免的兩側都要有樣本，否則「空清單一律違規」會把一份
+    # 照規格寫的偵察報告判成不合格，而那是查核器在跟自己的規格打架。
+    ("good_recon_report.md", 0, set()),
     ("missing_trace_section.md", 1, {"STRUCT-01"}),
     ("no_tool_tier.md", 1, {"STRUCT-02"}),
+    # ---- rgh-block：載體、JSON、schema、結算（EXACT，沒有寬容可談）--------
+    # 沒有區塊＝第一節與結算完全沒有被查過，而沒有被查過不能長得像通過。
+    ("block_absent.md", 1, {"BLOCK-01"}),
+    # 「整份恰好一個」單獨就關掉一整類誘餌：放一個算術自洽的假區塊搶走對帳。
+    ("block_duplicate.md", 1, {"BLOCK-01"}),
+    ("block_bad_json.md", 1, {"BLOCK-01"}),
+    # 結算在區塊裡就對不起來時，查核器**不再**拿它去跟散文列數比對——
+    # 一個缺陷不該變成三句話，其中兩句還會把作者送去改沒有壞的東西。
+    ("block_settlement_mismatch.md", 1, {"BLOCK-01"}),
+    # 預設的效力是一個四值列舉，寫錯就是違規，不是靜默降級。
+    ("block_status_unknown.md", 1, {"ASSUM-01"}),
+    # 空的 `assumptions` 是一個**宣稱**（第 1 步整步沒跑），不是缺席——所以它查得動。
+    # 這一份與 good_recon_report.md 是同一條規則的兩側：宣告了偵察模式的可以空，
+    # 沒宣告的不行。只釘一側的話，那一側會慢慢變成全部。
+    ("recon_undeclared_empty.md", 1, {"BLOCK-01"}),
+    # 地形報告不寫區塊（SKILL.md〈rgh-block〉）。寫了就是一塊沒有任何規則會驗的區域，
+    # 而以前它同時被剝出散文與禁語掃描——不被驗證、也不被掃描，是這個模式最不能有的東西。
+    ("landscape_stray_block.md", 1, {"BLOCK-01"}),
+    # 編號用全形數字寫。以前 `\d` 讓它通過形狀測試，接著 NFKC 只發生在 containment 那一側，
+    # 於是三筆 finding 指著三行沒有壞的東西。這一份釘的是「訊息要落在壞掉的那個東西上」。
+    ("block_fullwidth_id.md", 1, {"ASSUM-01"}),
+    # ---- ANCHOR-01：區塊寫的字，散文裡要找得到（containment，不是解析）----
+    ("anchor_prose_missing.md", 1, {"ANCHOR-01"}),
+    # 錨點藏在 HTML 註解裡不算「出現在散文」。這一份與先前那個「檔首註解假結算」
+    # 是同一個機制，所以剝註解是正規化的強制步驟。
+    ("anchor_in_html_comment.md", 1, {"ANCHOR-01"}),
+    # 反方向：散文寫了、區塊漏了。containment 只問區塊→散文，這一條補另一邊。
+    ("anchor_orphan_assumption.md", 1, {"ANCHOR-01"}),
+    # 錨點的第二個問題：**位置**。整條預設行從第一節搬進候選底下，字一個都沒改，
+    # 所以「文件裡有沒有這個字串」問不出任何問題。SKILL.md 的錨點規則寫的是
+    # 「出現在第一節那條預設行上」——這一份釘的是那半句，也是一條回歸樣本
+    # （重構之前的樹抓得到它，重構之後一度抓不到）。
+    ("anchor_line_relocated.md", 1, {"ANCHOR-01"}),
+    # 錨點的第三個問題：**掛在哪一條上**。標籤離開它該在的那一行（正向），
+    # 以及標籤出現在 status 對不上的那一行（反向）。兩側各一份：只釘正向的話，
+    # 把標籤從一條撕下來貼到另一條上只會被說中一半。
+    ("anchor_label_off_line.md", 1, {"ANCHOR-01"}),
+    ("anchor_label_wrong_status.md", 1, {"ANCHOR-01"}),
     ("count_mismatch.md", 1, {"COUNT-01"}),
-    ("count_inverted.md", 1, {"COUNT-02"}),
     ("recon_mismatch.md", 1, {"RECON-01"}),
     ("bad_verdict.md", 1, {"VERDICT-01"}),
     ("done_in_survivors.md", 1, {"VERDICT-02"}),
     ("assumption_no_frame.md", 1, {"ASSUM-01"}),
-    # 承接後宣稱「已補取樣框」，取樣框卻不完整——補框一旦宣稱出去，就與本輪
-    # 量化的預設同標準。這一份釘的是 ASSUM-01 的承接臂（訊息也不得叫它改寫成
-    # 〔印象，未驗證〕：效力相同，但來源要留著）。
+    # 承接後宣稱「已補取樣框」（status=inherited_framed），取樣框卻不完整——
+    # 補框一旦宣稱出去，就與本輪量化的預設同標準。這一份釘的是 ASSUM-01 的承接臂
+    # （訊息的退路也不得是〔印象，未驗證〕：效力相同，但來源要留著）。
     ("inherited_framed_partial.md", 1, {"ASSUM-01"}),
     ("impression_as_g3.md", 1, {"ASSUM-02"}),
     # 承接未補框的預設被拿去當 G3 輸入。這一份釘的是 ASSUM-02 的承接臂，
@@ -104,6 +134,9 @@ EXPECTED = [
     ("done_no_quote.md", 1, {"KILL-03"}),
     ("kill_no_identifier.md", 1, {"ID-01"}),
     ("untraced_candidate.md", 1, {"TRACE-01"}),
+    # 同一條互鎖的另一臂：第一節的預設。豁免由區塊的 status 決定，所以兩邊都要有樣本
+    # ——只釘豁免那一側的話，「framed 一定要有對應列」就是一句沒人驗過的話。
+    ("assumption_untraced.md", 1, {"TRACE-01"}),
     ("trace_placeholder_query.md", 1, {"TRACE-02"}),
     ("assertive_language.md", 1, {"LANG-01"}),
     ("no_search_with_verdicts.md", 1, {"TIER-01"}),
@@ -122,15 +155,6 @@ EXPECTED = [
     # 說「結算寫已淘汰 6、第四節實際有 5 列」，而 6 是對的、壞的是那一列的形狀）。
     # 每一份釘一種讀不到的方式，一份一種，因為 PARSE-01 是**定位**規則：它的一個臂失效
     # 不是弱化一條檢查，是把底下每一條檢查一起關掉，所以每個臂都要有自己的樣本與突變體。
-    ("assumption_unreadable_line.md", 1, {"ASSUM-01"}),
-    # 同一條規則的**另一個方向**，而這一份是這一輪唯一新增的樣本：分隔符落在
-    # ASSUM_LINE_RE 收的字元類之外（`- 預設 A2——〈…〉`）。加了結構字元 lookahead
-    # 之後，這一行對 ASSUM_LINE_RE 與 ASSUM_LOOKALIKE_RE 同時隱形，整份報告
-    # 預設 3→2、unreadable 0、離開碼 0、零筆 finding。壞的是 A2 而不是 A1：
-    # A1 有 G3 候選指著它，讀不到它至少會掉出一句誤導的 ASSUM-02；A2 沒有，
-    # 所以它是**徹底安靜**的那一種。兩個方向現在各有一份樣本，少了任何一份，
-    # 下一次「修好」其中一邊時沒有人會看到另一邊倒下去。
-    ("assumption_em_dash_separator.md", 1, {"ASSUM-01"}),
     ("candidate_head_unreadable.md", 1, {"PARSE-01"}),
     ("kill_row_short.md", 1, {"PARSE-01"}),
     ("landscape_wall_row_short.md", 1, {"PARSE-01"}),
@@ -149,6 +173,12 @@ EXPECTED = [
     # 不得跟著響；它們一響就代表查核器又在把人送去改對帳數字，而壞的是一行標題。
     ("family_head_no_id.md", 1, {"PARSE-01"}),
     ("candidate_head_no_keyword.md", 1, {"PARSE-01"}),
+    # 同一條規則的另一個臂：報告結構藏進圍欄區塊裡。圍欄在讀者眼裡是程式碼，
+    # 查核器也不保證把它當結構讀——**兩邊都不算的區域什麼都裝得下**。
+    ("fenced_assumption_line.md", 1, {"PARSE-01"}),
+    # 同一個缺陷、換一個圍欄符號。`~~~` 在讀者眼裡與 ``` 一模一樣，所以只認一種
+    # 就是留一個一字元的繞道；這一份釘的就是「兩種都算」。
+    ("tilde_fenced_assumption_line.md", 1, {"PARSE-01"}),
     # 區段標題被改寫。兩種模式各一份：缺口報告的第一節（改名後預設整批消失，
     # 而 G3 候選會收到「指到第一節沒有的預設」那句誤導）、地形報告的一眼表
     # （改名後 LSTAT-01 與 LCOST-01 對每一列同時熄燈）。兩份都必須**只**報 SECT-01——
@@ -160,9 +190,17 @@ EXPECTED = [
 
 # 手寫的基準樣本；其餘全部由 make_fixtures.py 生成。
 HANDWRITTEN = {"good_report.md", "good_nosearch_report.md", "chinese_index_na.md",
-               "good_landscape.md", "good_inherited_report.md"}
-# 這個樣本刻意把基準報告包進敘事文字裡，不適用「只差兩行」的單一維度規則。
-WRAPPED = {"narrative_wrapper.md"}
+               "good_landscape.md", "good_inherited_report.md", "good_recon_report.md"}
+# 「差幾行」是單一維度的**代理指標**，而有三種缺陷它算不準。豁免掉的是這個代理，
+# 不是「只壞一個維度」那條規則本身——三份都由 make_fixtures.py 生成，所以單一維度
+# 照樣是被建構出來的，不是靠肉眼維持。每一份的理由不同，各自寫出來：
+#   narrative_wrapper.md          整份報告被包進敘事文字，本來就不是「壞掉一行」
+#   landscape_stray_block.md      一個圍欄區塊最少三行，區塊本身就是那一個維度
+#   tilde_fenced_assumption_line.md  `~~~` 的開頭與結尾是同一個字串，基準裡兩個都沒有，
+#                                 於是同一個構造被這個指標數成兩行（```` ``` ```` 那一份
+#                                 只算一行，因為基準裡本來就有 ``` ——差別在基準，不在缺陷）
+LINE_COUNT_EXEMPT = {"narrative_wrapper.md", "landscape_stray_block.md",
+                     "tilde_fenced_assumption_line.md"}
 
 # 敘事型文件的處理方式（見 evals/README.md〈敘事型文件〉）：
 # 報告本體用這兩個標記包起來，查核器只查標記之內。examples/ 底下的走查檔
@@ -171,6 +209,19 @@ WRAPPED = {"narrative_wrapper.md"}
 EXAMPLES_DIR = os.path.join(os.path.dirname(HERE), "examples")
 # 要的是真的標記，不是在內文裡提到這個標記；所以連 <!-- --> 一起比對。
 BLOCK_MARK = "<!-- format-check: report-start -->"
+
+
+def read_back(fc, path):
+    """把一份樣本讀回解析結果，順便拿到它的 check id 集合。
+
+    綠燈證明不了「讀到了」——靜默丟掉一行也是綠的。回讀是這個套件唯一分得出
+    「乾淨」與「根本沒讀到」的辦法。
+    """
+    with io.open(path, encoding="utf-8") as fh:
+        rep = fc.parse_report(fh.read())
+    checker = fc.LandscapeChecker if rep.mode == "landscape" else fc.Checker
+    ids = set(f["check"] for f in checker(rep, path).run())
+    return rep, ids
 
 
 def run_checker(path, as_json=True):
@@ -253,9 +304,8 @@ def main():
     # 互鎖的例外，用程式釘住而不是靠散文宣稱。
     # SKILL.md〈互鎖的例外〉：承接自地形、且尚未補取樣框的預設不需要第六節的對應列
     # ——它不是這一輪搜出來的，逼它附檢索紀錄就是逼報告去寫一次沒跑過的搜尋。
-    # 上面那兩個綠燈只有在「樣本真的沒有那一列」的前提下才是證據；有人日後順手替
-    # 它補一列，綠燈就退化成巧合。所以這裡直接讀樣本：確認承接未補框的預設存在、
-    # 且第六節沒有它的列——綠燈才是這條例外真的成立的證據。
+    # 豁免的**依據**這一輪換了（從散文的括號標籤換成區塊的 status），理由一個字沒變；
+    # 而依據一換，「這份樣本真的沒有那一列」就更該直接讀，不能靠綠燈推。
     sys.path.insert(0, HERE)
     try:
         import format_check as fc
@@ -268,56 +318,66 @@ def main():
             if not os.path.isfile(p):
                 failures.append("互鎖例外：樣本 %s 不存在" % name)
                 continue
-            with io.open(p, encoding="utf-8") as fh:
-                rep = fc.parse_report(fh.read())
-            unframed = [a for a in rep.assumptions if a["inherited"] and not a["framed"]]
+            rep, ids = read_back(fc, p)
+            unframed = [a for a in rep.assumptions if a.get("status") == "inherited"]
             if not unframed:
-                failures.append("%s：解析不到任何〔承接自地形 W…〕未補框的預設，"
-                                "互鎖例外在這份樣本上沒有對象（parser 又壞了？）" % name)
+                failures.append("%s：區塊裡沒有任何 status=inherited 的預設，"
+                                "互鎖例外在這份樣本上沒有對象" % name)
                 continue
             logged = []
             for a in unframed:
-                if not a["aid"]:
-                    continue
-                pat = re.compile(r"(?<![A-Za-z0-9])%s(?![0-9])" % re.escape(a["aid"]), re.I)
+                pat = re.compile(r"(?<![A-Za-z0-9])%s(?![0-9])" % re.escape(a["id"]), re.I)
                 for r in rep.trace_rows:
                     if pat.search(fc.strip_md(r.get("candidate", ""))):
-                        logged.append((a["aid"], r["_line"]))
-            print("互鎖例外：%s 有 %d 條承接未補框的預設（%s），第六節對應列 %d 筆（應為 0）"
-                  % (name, len(unframed),
-                     "、".join(a["aid"] or "（無編號）" for a in unframed), len(logged)))
+                        logged.append((a["id"], r["_line"]))
+            print("互鎖例外：%s 有 %d 條 status=inherited 的預設（%s），第六節對應列 %d 筆（應為 0）"
+                  % (name, len(unframed), "、".join(a["id"] for a in unframed), len(logged)))
             if logged:
                 failures.append(
                     "%s：承接未補框的預設 %s 在第六節有對應列（第 %d 行）——"
                     "這份樣本已經證明不了互鎖例外，它只是有紀錄所以沒被罰"
                     % (name, logged[0][0], logged[0][1]))
 
-        # 綠燈證明不了「讀到了」——靜默丟掉一行也是綠的，而那正是這次要修的缺陷。
-        # 所以這兩份綠樣本要回讀一次解析結果：那一條被改寫成規格顯示形狀的預設
-        # 必須真的在 assumptions 裡、必須被歸成「承接且已補框」、而且必須真的有
-        # 一個 G3 候選指著它。三件事都成立，綠燈才是「讀到了而且分類正確」的證據。
+        # 反過來的那一半：status 是 framed／inherited_framed 的預設**必須**有
+        # `第1步-推翻A<n>` 的對應列。豁免是靠 status 分流的，所以兩邊都要有樣本釘住，
+        # 否則「豁免」會退化成「這條規則對誰都沒開過火」。
+        p = os.path.join(FIXTURES, "good_inherited_report.md")
+        rep, _ids = read_back(fc, p)
+        framed = [a for a in rep.assumptions
+                  if a.get("status") in ("framed", "inherited_framed")]
+        cells = [re.sub(r"\s+", "", fc.strip_md(r.get("candidate", "")))
+                 for r in rep.trace_rows]
+        missing = [a["id"] for a in framed
+                   if not any(("第1步-推翻" + a["id"]) in c for c in cells)]
+        print("互鎖正面：good_inherited_report.md 有 %d 條 framed／inherited_framed 的預設（%s），"
+              "第六節都有對應列（缺 %d 筆）"
+              % (len(framed), "、".join(a["id"] for a in framed), len(missing)))
+        if not framed:
+            failures.append("good_inherited_report.md：沒有任何 framed 的預設，"
+                            "TRACE-01 的預設臂在這份樣本上沒有對象")
+        if missing:
+            failures.append("good_inherited_report.md：預設 %s 沒有第六節的對應列，"
+                            "但這份樣本應該是綠的" % "、".join(missing))
+
+        # 綠燈證明不了「讀到了」。這一份樣本的價值全在一句話上：**預設行的形狀
+        # 不再決定任何一條規則的適用性**。所以要回讀三件事：A3 真的在區塊裡、
+        # 被歸成 inherited_framed、而且真的有一個 G3 候選指著它——三件都成立，
+        # 那個引用區塊寫法的綠燈才是「效力仍然被判對了」的證據，而不是「沒人看它」。
         print("")
-        for name, aid in (("assumption_blockquote_ok.md", "A3"),
-                          ("assumption_two_brackets_ok.md", "A3"),
-                          ("assumption_fullwidth_bracket_ok.md", "A3")):
+        for name, aid, want_status in (("assumption_blockquote_ok.md", "A3", "inherited_framed"),):
             p = os.path.join(FIXTURES, name)
             if not os.path.isfile(p):
                 failures.append("預設行形狀：樣本 %s 不存在" % name)
                 continue
-            with io.open(p, encoding="utf-8") as fh:
-                rep = fc.parse_report(fh.read())
-            got = [a for a in rep.assumptions if a["aid"] == aid]
+            rep, _ids = read_back(fc, p)
+            got = [a for a in rep.assumptions if a.get("id") == aid]
             if not got:
-                failures.append(
-                    "%s：解析不到預設 %s——那一行被靜默丟掉了，而這份樣本的綠燈"
-                    "本來就是要證明它讀得到" % (name, aid))
+                failures.append("%s：區塊裡沒有預設 %s" % (name, aid))
                 continue
             a = got[0]
-            if not (a["inherited"] and a["framed"]):
-                failures.append(
-                    "%s：預設 %s 讀到了，卻沒有被歸成〔承接自地形…已補取樣框〕"
-                    "（inherited=%s framed=%s）——標籤只被讀進一半"
-                    % (name, aid, a["inherited"], a["framed"]))
+            if a.get("status") != want_status:
+                failures.append("%s：預設 %s 的 status 是 %r，應為 %r"
+                                % (name, aid, a.get("status"), want_status))
             fed = [c for c in rep.candidates
                    if "gap_type" in c["fields"]
                    and aid in fc.strip_md(c["fields"]["gap_type"][1]).upper()]
@@ -325,59 +385,73 @@ def main():
                 failures.append(
                     "%s：沒有任何 G3 候選指到 %s，這份樣本的綠燈因此不含資訊"
                     "（改壞那一行也不會轉紅）" % (name, aid))
-            print("預設行形狀：%s 的 %s 讀得到（承接=%s／已補框=%s），有 %d 個 G3 候選指著它"
-                  % (name, aid, a["inherited"], a["framed"], len(fed)))
+            # 散文那一行被改寫成引用區塊之後，錨點仍然要找得到——這才是「形狀無關」
+            # 真正的意思：規則沒有停用，只是不再看那一行長什麼樣子。
+            if "ANCHOR-01" in _ids:
+                failures.append("%s：改寫成引用區塊之後 ANCHOR-01 開火了——"
+                                "正規化沒有吃掉 `> `，這是假紅燈" % name)
+            print("預設行形狀：%s 的 %s 在區塊裡（status=%s），有 %d 個 G3 候選指著它，"
+                  "散文改寫成引用區塊後錨點仍然找得到"
+                  % (name, aid, a.get("status"), len(fed)))
 
-        # lookalike 樣式的**兩個方向**，各回讀一次。上面的離開碼只證明「有一筆
-        # ASSUM-01」，證明不了它是為了哪一行而響——而這兩份樣本的全部價值就在那一行。
-        #
-        # 方向一（刻意的假紅）：一句在講預設的散文，必須被報成讀不到。這是取捨的
-        # 代價那一邊，寫成可執行的東西；它一旦變綠，就是結構字元 lookahead 又被加
-        # 回去了，而那個 lookahead 同時會讓方向二靜默消失。
-        # 方向二（要守住的真紅）：分隔符落在字元類之外的預設行，必須被報成讀不到，
-        # 而且不得被算成一條預設。它一旦靜默，報告就會帶著沒被讀過的一行拿到綠燈。
+        # 措辭漂移那一類：以前把 `- 預設 A1：…` 改寫成 `- 前提 A1：…` 會讓那一條
+        # 整條從查核裡消失（預設 2→0、unreadable 0、離開碼 0、零 finding），而那是
+        # 這批洞裡唯一**不必刻意構造就會發生**的一個。現在預設的身分是 JSON 欄位，
+        # 改寫散文只會讓錨點找不到——這裡就地構造一次，確認它是紅的。
         print("")
-        _prose = "- 預設 A1 與 A2 都與量測方式有關，讀的時候要一起看"
-        _dash = "- 預設 A2——〈自陳問卷測得的身體活動量足以取代加速規的客觀量測〉"
-        for fname, needle, label in (
-                ("assumption_prose_mention.md", _prose, "散文（刻意的假紅）"),
-                ("assumption_em_dash_separator.md", _dash, "破折號分隔符（真紅）")):
-            p = os.path.join(FIXTURES, fname)
-            if not os.path.isfile(p):
-                failures.append("lookalike 兩方向：樣本 %s 不存在" % fname)
-                continue
-            with io.open(p, encoding="utf-8") as fh:
-                rep = fc.parse_report(fh.read())
-            hit = [ln for ln in rep.lines if ln.startswith(needle)]
-            if not hit:
+        p = os.path.join(FIXTURES, "good_nosearch_report.md")
+        with io.open(p, encoding="utf-8") as fh:
+            original = fh.read()
+        drifted = original.replace("- 預設 A1：", "- 前提 A1：")
+        if drifted == original:
+            failures.append("措辭漂移：在 good_nosearch_report.md 裡找不到 `- 預設 A1：`，"
+                            "這個檢查因此沒有對象")
+        else:
+            ids = set(f["check"] for f in fc.Checker(fc.parse_report(drifted), p).run())
+            print("措辭漂移：`- 預設 A1：` → `- 前提 A1：` ⇒ %s（應含 ANCHOR-01）"
+                  % (" ".join(sorted(ids)) or "（無）"))
+            if "ANCHOR-01" not in ids:
                 failures.append(
-                    "%s：找不到那一行（%s…），這份樣本的紅燈因此不含資訊"
-                    "——改壞 lookalike 樣式也不會轉綠" % (fname, needle[:16]))
-                continue
-            line = hit[0]
-            if not any(s["text"] == line for s in rep.assumption_strays):
+                    "措辭漂移：把預設行改寫成「前提 A1」之後沒有任何 ANCHOR-01——"
+                    "那一條的編號與那句話都從查核裡消失了，正是這次重構要關掉的那一類")
+
+        # 偵察模式豁免的**第二個條件**。第一個條件（表頭逐字宣告偵察抽樣）由
+        # recon_undeclared_empty.md 釘住；第二個沒辦法用一次替換表達，就地構造：
+        # 拿一份有 3 個存活候選、6 個淘汰的完整獵捕報告，宣告自己是偵察抽樣、
+        # 再把預設清單清空——如果一句宣告就能買到豁免，這裡會是綠的，而那等於在
+        # 剛關上的門旁邊開一扇窗。SKILL.md〈偵察模式〉同時規定了那一份長什麼樣
+        # （不產生存活候選、不執行淘汰，所以結算的存活與已淘汰都是 0），
+        # 而那兩個數字又被 COUNT-01／RECON-01 對到散文的實際列數——它不是自我宣告。
+        print("")
+        p = os.path.join(FIXTURES, "good_report.md")
+        with io.open(p, encoding="utf-8") as fh:
+            full = fh.read()
+        claimed = full.replace("**模式**：完整獵捕", "**模式**：偵察抽樣（非新穎性判定）")
+        emptied = re.sub(r'"assumptions": \[.*?\n\]', '"assumptions": []', claimed, flags=re.S)
+        if claimed == full or emptied == claimed:
+            failures.append("偵察豁免：在 good_report.md 裡改不出「宣告偵察模式＋空預設清單」"
+                            "這一份，這個檢查因此沒有對象")
+        else:
+            ids = set(f["check"] for f in fc.Checker(fc.parse_report(emptied), p).run())
+            print("偵察豁免：宣告偵察抽樣但存活 3／已淘汰 6，且 `assumptions` 清空 ⇒ %s"
+                  "（應含 BLOCK-01）" % (" ".join(sorted(ids)) or "（無）"))
+            if "BLOCK-01" not in ids:
                 failures.append(
-                    "%s：那一行沒有被報成讀不到（%s）——lookalike 樣式又被收窄了，"
-                    "而收窄它的那一次同時會讓另一個方向靜默消失" % (fname, label))
-            if any(a["text"] == line for a in rep.assumptions):
-                failures.append("%s：那一行被當成一條讀得出來的預設算進去了" % fname)
-            print("lookalike 兩方向：%s 的「%s…」被報成讀不到（%s）；"
-                  "該份共 %d 條預設、%d 筆讀不到"
-                  % (fname, needle[:16], label,
-                     len(rep.assumptions), len(rep.assumption_strays)))
+                    "偵察豁免：一份存活 3、已淘汰 6 的報告只要宣告一行〈模式：偵察抽樣〉"
+                    "就能交出空預設清單而不被說——那條豁免因此是一扇門，不是一個條件")
 
         # 標題改名的那三份：綠燈證明不了「內容還讀得到」，紅燈也只證明有一筆 SECT-01。
         # 真正要釘的是「改名之後底下的東西照樣被讀進來」——所以直接回讀解析結果。
+        # 第一節那一份現在釘的是**形狀定位本身**：節名認不出來時，是「裡面有 預設 A<n>」
+        # 這個 token 掃描把它認回來的，而不是有人放棄。
         print("")
-        for name, attr, least in (("consensus_section_renamed.md", "assumptions", 3),
-                                  ("trace_section_renamed.md", "trace_rows", 22),
+        for name, attr, least in (("trace_section_renamed.md", "trace_rows", 22),
                                   ("landscape_section_renamed.md", "glance_rows", 7)):
             p = os.path.join(FIXTURES, name)
             if not os.path.isfile(p):
                 failures.append("區段改名：樣本 %s 不存在" % name)
                 continue
-            with io.open(p, encoding="utf-8") as fh:
-                rep = fc.parse_report(fh.read())
+            rep, _ids = read_back(fc, p)
             got = len(getattr(rep, attr))
             print("區段改名：%s 改名後仍讀到 %s %d 筆（應為 %d），renamed_sections=%d"
                   % (name, attr, got, least, len(rep.section_renames)))
@@ -388,6 +462,15 @@ def main():
                     % (name, attr, got, least))
             if not rep.section_renames:
                 failures.append("%s：解析結果沒有記到任何被改名的區段" % name)
+        p = os.path.join(FIXTURES, "consensus_section_renamed.md")
+        rep, _ids = read_back(fc, p)
+        by_shape = [s for s in rep.section_renames if s["kind"] == "consensus"]
+        print("區段改名：consensus_section_renamed.md 的第一節靠形狀認回來 %d 筆"
+              "（renamed_sections=%d）" % (len(by_shape), len(rep.section_renames)))
+        if not by_shape:
+            failures.append(
+                "consensus_section_renamed.md：改名之後沒有任何一節被**靠形狀**認成第一節"
+                "——SECT-01 就退化成「認不出來所以不報」，而那正是它存在要擋的東西")
 
     # 樣本的單一維度保證：衍生樣本與它自己的基準只能差在少數幾行。
     # 「它自己的基準」從 make_fixtures.py 推導，不在這裡另寫一份對照表——
@@ -402,7 +485,7 @@ def main():
         bases = make_fixtures.derived_bases()
     base_lines = {}
     for name, _c, _want in EXPECTED:
-        if name in HANDWRITTEN or name in WRAPPED:
+        if name in HANDWRITTEN or name in LINE_COUNT_EXEMPT:
             continue
         base_name = bases.get(name)
         if not base_name:

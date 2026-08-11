@@ -44,6 +44,81 @@ if hasattr(sys.stdout, "reconfigure"):
 # 原始片段必須在 format_check.py 中「恰好出現一次」，否則突變位置不明確，
 # 本檔會直接判為 FAIL——模稜兩可的突變證明不了東西。
 MUTATIONS = [
+    # ---- rgh-block：載體、結算、錨點 ---------------------------------------
+    # 這幾個突變削弱的都是「結構化資料一定要合規」的那個條件。削弱之後，區塊回到
+    # 它以前的狀態：不存在（第一節與結算完全沒有被查過）、或者說什麼算什麼。
+    (
+        "BLOCK-01", "block_absent.md",
+        "把「缺口報告一定要有區塊」放寬成「沒有區塊就跳過區塊規則」"
+        "（＝那條被否決掉的降級模式：留一條路等於留一句「不想被查就別寫區塊」）",
+        "        if rep.mode != \"gap\":\n            return",
+        "        if rep.mode != \"gap\" or not rep.raw_blocks:\n            return",
+    ),
+    (
+        "BLOCK-01", "block_duplicate.md",
+        "不再要求「整份恰好一個區塊」（＝放一個算術自洽的假區塊搶走對帳那一類誘餌，重新可用）",
+        "        if len(rep.raw_blocks) > 1:",
+        "        if len(rep.raw_blocks) > 99:",
+    ),
+    (
+        "BLOCK-01", "block_settlement_mismatch.md",
+        "不再驗證候選結算的算術（生成 ＝ 存活 ＋ 待確認 ＋ 已淘汰）",
+        "                if g != s + p + q:",
+        "                if False:",
+    ),
+    (
+        "BLOCK-01", "recon_undeclared_empty.md",
+        "空的 `assumptions` 不再是一筆違規（＝跳過整個第 1 步，重新可以長得像通過）",
+        "        if rep.block.get(\"assumptions\"):\n            return",
+        "        if True:\n            return",
+    ),
+    (
+        "BLOCK-01", "landscape_stray_block.md",
+        "地形報告裡的區塊不再被回報（＝那個沒有任何規則會驗的區域重新是安靜的）",
+        "        for b in list(self.rep.raw_blocks) + list(self.rep.near_blocks) + tilde:",
+        "        for b in []:",
+    ),
+    (
+        "ANCHOR-01", "anchor_prose_missing.md",
+        "區塊裡那一句話不再被要求出現在散文（＝區塊可以自由地跟讀者看到的內容不一致）。"
+        "削弱的是「要問哪些錨點」這個條件本身——把 self.add 拿掉證明不了任何事，"
+        "而少問一個問題正是這條規則唯一會壞的方式",
+        "            out.append((a.get(\"anchor\") or \"\", \"預設 %s 的那一句話\" % aid, loc, aid))",
+        "            out.append((\"\", \"預設 %s 的那一句話\" % aid, loc, aid))",
+    ),
+    (
+        "ANCHOR-01", "anchor_in_html_comment.md",
+        "containment 正規化不再剝掉 HTML 註解（＝藏在註解裡的誘餌重新能滿足錨點，"
+        "而讀者在畫面上看到的是另一句話——與那個檔首假結算是同一個機制）",
+        "    s = HTML_COMMENT_RE.sub(\" \", s)\n    s = unicodedata.normalize(\"NFKC\", s)",
+        "    s = unicodedata.normalize(\"NFKC\", s)",
+    ),
+    (
+        "ANCHOR-01", "anchor_orphan_assumption.md",
+        "不再做反向覆蓋掃描（＝散文寫了一條預設、區塊整個漏掉，安靜通過）",
+        "                if aid in known or aid in seen:\n                    continue",
+        "                if True:\n                    continue",
+    ),
+    (
+        "ANCHOR-01", "anchor_line_relocated.md",
+        "不再問「那一行落在哪一節」（＝整條預設行搬進候選底下，每個錨點照樣對得上）",
+        "            if any(k not in self.FOREIGN_HOST_KINDS for _i, k in hosts):\n"
+        "                continue",
+        "            if True:\n                continue",
+    ),
+    (
+        "ANCHOR-01", "anchor_label_off_line.md",
+        "錨點退回只問「文件裡有沒有這個字串」，不再問它在不在那一條的那一行上"
+        "（＝把字散到文件別處，區塊照樣宣稱對得上）",
+        "            if any(norm in rep.prose_lines_norm[i] for i in lines):\n                continue",
+        "            if True:\n                continue",
+    ),
+    (
+        "ANCHOR-01", "anchor_label_wrong_status.md",
+        "效力標籤只查正面、不查反面（＝標籤可以額外掛在 status 對不上的預設行上）",
+        "                if status not in forbid:\n                    continue",
+        "                if True:\n                    continue",
+    ),
     # ---- 讀不進來的行與列 --------------------------------------------------
     # 這三個突變削弱的都是「發現自己讀不到」的那個條件，不是回報那一行。削弱之後，
     # 畸形的輸入回到它以前的樣子：靜默消失（前兩個），或偽裝成計數對不起來（第三個）。
@@ -87,6 +162,19 @@ MUTATIONS = [
         "    if False:",
     ),
     (
+        "PARSE-01", "fenced_assumption_line.md",
+        "圍欄區塊裡的報告結構不再被回報（＝圍欄重新是「兩邊都不算」的區域）",
+        "            why = _fence_structure_why(ln, mode)\n            if why:",
+        "            why = _fence_structure_why(ln, mode)\n            if False:",
+    ),
+    (
+        "PARSE-01", "tilde_fenced_assumption_line.md",
+        "結構掃描只認反引號圍欄（＝`~~~` 變成一個一字元的繞道，"
+        "而它在讀者眼裡與 ``` 完全一樣）",
+        "FENCE_SCAN_OPEN_RE = re.compile(r\"^\\s{0,3}((?:`{3,})|(?:~{3,}))\\s*([^`]*?)\\s*$\")",
+        "FENCE_SCAN_OPEN_RE = re.compile(r\"^\\s{0,3}((?:`{3,}))\\s*([^`]*?)\\s*$\")",
+    ),
+    (
         "PARSE-01", "glance_row_lost_pipe.md",
         "掉了行首直線的資料列不再被認出來（＝回到上線前：整列無聲消失）",
         "                if len(PIPE_RE.findall(lines[i])) < need:\n                    continue",
@@ -97,9 +185,9 @@ MUTATIONS = [
     # 於是改名的樣本重新變成「沒有這一節、因此沒有違規」——也就是這一輪要消滅的東西。
     (
         "SECT-01", "consensus_section_renamed.md",
-        "第一節不再靠「裡面有預設行」認出來",
+        "第一節不再靠「裡面提到預設 A<n>」認出來（＝節名一改就變成「沒有這一節因此沒有違規」）",
         "    for j in range(s[\"start\"], s[\"end\"]):\n"
-        "        if ASSUM_LINE_RE.match(rep.lines[j]) or ASSUM_LOOKALIKE_RE.match(rep.lines[j]):\n"
+        "        if PROSE_AID_RE.search(strip_md(rep.lines[j])):\n"
         "            return \"consensus\"",
         "    for j in range(s[\"start\"], s[\"end\"]):\n"
         "        if False:\n"
@@ -117,24 +205,6 @@ MUTATIONS = [
         "檢索紀錄表不再靠表頭欄位認出來",
         "    if \"query\" in cols and \"hits\" in cols:\n        return \"trace\"",
         "    if False:\n        return \"trace\"",
-    ),
-    (
-        "ASSUM-01", "assumption_unreadable_line.md",
-        "看起來像預設、卻讀不出來的行不再被認出來（＝靜默丟掉）",
-        "        elif ASSUM_LOOKALIKE_RE.match(raw):",
-        "        elif False:",
-    ),
-    # 同一條規則的另一個臂，而這個突變體釘的是一次**真的發生過的回歸**：
-    # 為了放過散文而在編號後面加一個結構字元 lookahead。加回去之後，分隔符落在
-    # 字元類之外的預設行（`- 預設 A1——〈…〉`）對 ASSUM_LINE_RE 與 lookalike 同時
-    # 隱形——樣本轉綠，而那正是這一輪撤掉的東西。突變體不是假想的削弱，是上一版的原文。
-    (
-        "ASSUM-01", "assumption_em_dash_separator.md",
-        "把結構字元 lookahead 加回 ASSUM_LOOKALIKE_RE（＝上一版的原文：分隔符落在"
-        "：: ｜ | 〈〔 之外的預設行對兩個樣式同時隱形，靜默丟掉）",
-        "    r\"^\\s*(?:[>|｜]\\s*)*\" + _BULLET + r\"\\*{0,2}\\s*預設\\s*[A-Za-z]?\\d{1,3}\"\n)",
-        "    r\"^\\s*(?:[>|｜]\\s*)*\" + _BULLET + r\"\\*{0,2}\\s*預設\\s*[A-Za-z]?\\d{1,3}\"\n"
-        "    r\"(?=\\s*\\*{0,2}\\s*[：:｜|〈\" + BRA_OPEN + r\"])\"\n)",
     ),
     (
         "VERDICT-01", "kill_row_no_verdict.md",
@@ -159,23 +229,16 @@ MUTATIONS = [
     ),
     (
         "COUNT-01", "count_mismatch.md",
-        "不再比對宣告存活數與實際候選區塊數",
-        "        if self.rep.declared_survived != actual:",
+        "不再拿區塊宣告的存活數去比對第二節實際的候選區塊數",
+        "        if survived != actual:",
         "        if False:",
     ),
     (
-        "COUNT-02", "count_inverted.md",
-        "把「生成數不得小於存活數」的門檻放寬 100",
-        "        if self.rep.declared_generated is not None and self.rep.declared_generated < self.rep.declared_survived:",
-        "        if self.rep.declared_generated is not None and self.rep.declared_generated < self.rep.declared_survived - 100:",
-    ),
-    (
         "RECON-01", "recon_mismatch.md",
-        "結算數字直接用實際列數回填——等於不再對帳",
-        "        n, m, p, q = rep.settlement\n",
-        "        n, m, p, q = rep.settlement\n"
-        "        m, p, q = len(rep.candidates), len(rep.pending_rows), len(rep.kill_rows)\n"
-        "        n = m + p + q\n",
+        "結算的待確認／已淘汰數直接用實際列數回填——等於不再對帳",
+        "        _n, _m, p, q = rep.settlement\n",
+        "        _n, _m, p, q = rep.settlement\n"
+        "        p, q = len(rep.pending_rows), len(rep.kill_rows)\n",
     ),
     (
         "VERDICT-01", "bad_verdict.md",
@@ -191,27 +254,40 @@ MUTATIONS = [
     ),
     (
         "ASSUM-01", "assumption_no_frame.md",
-        "把每一條預設都當成印象級，量化檢查整段不執行",
-        '            if a["impression"]:\n                continue',
-        "            if True:\n                continue",
+        "取樣框整段不驗（十個欄位、Mp ≥ 3、len(pick) = Mp、M ≤ Mp、K ≤ Kp 全部不看）",
+        "                for path, msg in _frame_problems(frame):",
+        "                for path, msg in []:",
     ),
     (
         "ASSUM-01", "inherited_framed_partial.md",
-        "把所有承接來的預設都當成未補框，取樣框檢查對它們整段不執行",
-        '            if a["inherited"] and not a["framed"]:',
-        '            if a["inherited"]:',
+        "承接後宣稱補了框的那一種，取樣框整段不驗（＝補框一旦宣稱出去就不再被要求做到）",
+        "    elif status_ok:\n        frame = e.get(\"frame\")",
+        "    elif status_ok and status != \"inherited_framed\":\n        frame = e.get(\"frame\")",
+    ),
+    (
+        "ASSUM-01", "block_status_unknown.md",
+        "`status` 不再限定在四個列舉值內（＝效力可以寫成任何字串，而那正是它取代括號標籤的理由）",
+        "    status_ok = isinstance(status, str) and status in ASSUM_STATUS_VALUES",
+        "    status_ok = isinstance(status, str)",
+    ),
+    (
+        "ASSUM-01", "block_fullwidth_id.md",
+        "編號的形狀測試改回 `\\d`（＝Unicode Nd 全收，全形數字寫的 `A３` 重新通過，"
+        "而 NFKC 只發生在 containment 那一側，於是三筆 finding 指著三行沒有壞的東西）",
+        "BLOCK_AID_RE = re.compile(r\"^A[0-9]{1,3}$\")",
+        "BLOCK_AID_RE = re.compile(r\"^A\\d{1,3}$\")",
     ),
     (
         "ASSUM-02", "impression_as_g3.md",
-        "不再檢查 G3 的輸入是不是印象級預設",
-        '                elif a["impression"]:',
+        "不再檢查 G3 的輸入的 status 是不是 impression",
+        '                elif status == "impression":',
         "                elif False:",
     ),
     (
         "ASSUM-02", "inherited_unframed_as_g3.md",
-        "不再檢查 G3 的輸入是不是承接自地形、尚未補取樣框的預設",
-        '                elif a["inherited"] and not a["framed"]:',
-        "                elif False:",
+        "不再檢查 G3 的輸入的 status 是不是 inherited（承接自地形、尚未補取樣框）",
+        '                if status == "inherited":',
+        "                if False:",
     ),
     (
         "EVID-01", "missing_evidence_field.md",
@@ -268,6 +344,13 @@ MUTATIONS = [
         "                if False:",
     ),
     (
+        "TRACE-01", "assumption_untraced.md",
+        "不再檢查 framed／inherited_framed 的預設有沒有 `第1步-推翻A<n>` 對應列"
+        "（＝互鎖的預設臂整條熄燈，而豁免那一側照樣是綠的，看起來人畜無害）",
+        "                if any(want in re.sub(r\"\\s+\", \"\", c) for c in cells):\n                    continue",
+        "                if True:\n                    continue",
+    ),
+    (
         "TRACE-02", "trace_placeholder_query.md",
         "不再檢查〈檢索紀錄〉的查詢詞是不是佔位符",
         "            if is_placeholder(q) or not extract_queries(q):",
@@ -276,8 +359,8 @@ MUTATIONS = [
     (
         "LANG-01", "assertive_language.md",
         "斷言措辭比對到了也不回報",
-        "                m = re.search(pat, ln)\n                if m:",
-        "                m = re.search(pat, ln)\n                if False:",
+        "                m = re.search(pat, scan)\n                if m:",
+        "                m = re.search(pat, scan)\n                if False:",
     ),
     (
         "TIER-01", "no_search_with_verdicts.md",
@@ -298,8 +381,8 @@ MUTATIONS = [
     (
         "LVOCAB-01", "landscape_verdict_word.md",
         "新穎性判定詞彙比對到了也不回報",
-        "            token = NOVELTY_TOKEN_RE.search(ln)\n            if token:",
-        "            token = NOVELTY_TOKEN_RE.search(ln)\n            if False:",
+        "            token = NOVELTY_TOKEN_RE.search(scan)\n            if token:",
+        "            token = NOVELTY_TOKEN_RE.search(scan)\n            if False:",
     ),
     (
         "LCOST-01", "landscape_no_cost.md",
@@ -345,11 +428,13 @@ def main():
     with io.open(CHECKER, encoding="utf-8") as fh:
         source = fh.read()
 
-    # 每個突變體都要對**三份**合規基準重跑：缺口報告、地形報告，以及承接地形的
-    # 缺口報告。少了地形那一份，一個把地形規則整條關掉的突變會看起來人畜無害；
-    # 少了承接那一份，一個只在「有承接標籤時」才踩壞的突變同樣不會被看見。
+    # 每個突變體都要對**四份**合規基準重跑：缺口報告、地形報告、承接地形的缺口報告，
+    # 以及偵察模式報告。少了地形那一份，一個把地形規則整條關掉的突變會看起來人畜無害；
+    # 少了承接那一份，一個只在「有承接標籤時」才踩壞的突變同樣不會被看見；
+    # 少了偵察那一份，一個把「空預設清單」的豁免改壞的突變會安靜地把一份合規報告判成違規。
     clean = [os.path.join(FIXTURES, n)
-             for n in ("good_report.md", "good_landscape.md", "good_inherited_report.md")]
+             for n in ("good_report.md", "good_landscape.md", "good_inherited_report.md",
+                       "good_recon_report.md")]
     tmp = tempfile.mkdtemp(prefix="gaphunter-mut-")
     failures = []
     collateral_notes = []

@@ -35,6 +35,12 @@
 標記之外的都是教學說明（第 0 步的問答、後面三個附錄），不是報告內容，所以不受查核——
 這也是為什麼附錄的教學文字可以引用那些報告裡不准寫的措辭。
 
+報告本體的最後多了一段圍欄標籤為 `json rgh-block` 的區塊，它不是第八節，是第一節那四條
+預設與表頭〈候選結算〉那四個數字的**機器可讀副本**。散文一個字都沒有因此改寫——區塊裡的
+每一段字，在上面的散文裡都找得到逐字相同的一份，這正是它被要求做到的事。缺口報告沒有這個
+區塊會直接判違規（離開碼 1），所以一份範例少了它就不再是合法的範例。為什麼只有這兩樣東西
+被搬進區塊、其餘全部留在散文，見 [`../README.zh-TW.md`](../README.zh-TW.md) 的〈天花板〉。
+
 ---
 
 ## 第 0 步：盤點條件（使用者的實際回答）
@@ -180,6 +186,19 @@
 retract: 10.0000/EX.01 10.0000/EX.02 10.0000/EX.03 10.0000/EX.05 10.0000/EX.11 10.0000/EX.12 10.0000/EX.13 10.0000/EX.21 10.0000/EX.22 10.0000/EX.23 10.0000/EX.31 10.0000/EX.32 10.0000/EX.41 10.0000/EX.51 10.0000/EX.61 10.0000/EX.62 10.0000/EX.63 10.0000/EX.71 10.0000/EX.81
 check:   （本報告全部引用文獻）
 ```
+
+```json rgh-block
+{
+"schema": "rgh-block/1",
+"settlement": {"generated": 12, "survived": 2, "pending": 4, "killed": 6},
+"assumptions": [
+{"id": "A1", "status": "framed", "anchor": "禁令的效果來自「減少課堂分心」這個中介機制", "frame": {"N": 24, "query": "smartphone ban school achievement", "limit": 24, "Mp": 8, "pick": [0,1,3,5,7,9,12,15], "M": 6, "refute_query": "phone ban achievement alternative mechanism sleep peer", "Kp": 9, "K": 2, "sample": "2015–2025，Semantic Scholar ＋ Crossref"}},
+{"id": "A2", "status": "framed", "anchor": "結果變項應該是標準化測驗分數", "frame": {"N": 24, "query": "mobile phone policy secondary school outcome", "limit": 24, "Mp": 7, "pick": [0,2,4,6,8,11,13], "M": 6, "refute_query": "phone restriction wellbeing outcome measurement", "Kp": 11, "K": 3, "sample": "2015–2025，Semantic Scholar"}},
+{"id": "A3", "status": "framed", "anchor": "禁令是一個二元且單向的處理：實施之後不會被撤除", "frame": {"N": 19, "query": "phone policy implementation fidelity school", "limit": 19, "Mp": 5, "pick": [1,2,4,7,9], "M": 4, "refute_query": "school technology policy reversal discontinuation", "Kp": 8, "K": 3, "sample": "2015–2025，Semantic Scholar ＋ Crossref"}},
+{"id": "A4", "status": "impression", "anchor": "禁令研究幾乎都在西方國家做", "frame": null}
+]
+}
+```
 <!-- format-check: report-end -->
 
 > 再說一次：上面那串 DOI 是**假的**，貼進 `retract` 只會全部回 `❓ 查詢失敗`。
@@ -278,6 +297,7 @@ python "$LIT" pick "gap_C04_q3.json" 0 2 6
 | C06 標〔矛盾已觀察，機制未知〕 | G4 沒有機制就只是觀察 | 一個沒有研究問題的觀察被包裝成缺口 |
 | 第六節整張表 | 二／三／四節的每個候選都要有對應列 | 整份報告可以零次搜尋憑空編出來，而且外觀跟真跑過的一模一樣 |
 | 全篇的識別碼欄 | 每筆文獻都要帶 DOI／arXiv ID／系統編號 | 撤稿檢查跑不起來，使用者也無從驗證，只能相信 |
+| 報告最後的 `rgh-block` | 第一節的預設清單與〈候選結算〉要另外寫成機器可讀的一份，且每一段字都要在散文裡逐字找得到 | 預設的身分退回「『預設』兩個字加一個分隔符」——換個寫法（`前提 A1`、引用區塊、破折號）整條就從查核裡消失，而畫面上沒有任何東西會講出來 |
 
 最後一件事：這份報告的存活數是 **2**，不是因為 2 是目標，是因為證據就長這樣。
 如果證據支持 8 個存活，就寫 8 個，並如實加一句「存活數偏高，可能反映檢索覆蓋不足」——

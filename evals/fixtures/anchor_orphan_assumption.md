@@ -9,7 +9,7 @@
 
 > 本檔是 evals 用的合成樣本。文中所有文獻皆為虛構（Author A、Author B……），
 > 識別碼使用 Crossref 測試前綴 10.5555，不對應任何真實出版品。
-> 相對於 good_report.md，本檔刻意壞掉一處：C07 的淘汰列〈判定〉欄留空。以前空判定是直接跳過的，於是 KILL-01／02／03 與 ID-01 全部沒有對象——一列沒有判定的淘汰，整列不受檢查而報告是綠的。
+> 相對於 good_report.md，本檔刻意壞掉一處：散文多寫一條 `預設 A4`，區塊裡沒有這一條。containment 只問區塊→散文，所以一條「區塊整個漏掉」的預設會安靜地通過；反向覆蓋掃描補的就是這個方向。它的失效方向是假紅燈（一句剛好提到「預設 A9」的散文會被要求進區塊），這是刻意選的那一邊。
 
 ## 一、領域共識與未被質疑的預設
 
@@ -18,6 +18,7 @@
 - 預設 A1：〈住家周邊的綠地面積可以代表居民實際獲得的綠地暴露〉｜標題層掃描 24 篇（檢索詞 `urban green space physical activity`，limit 24）｜摘要層精讀 8 篇（pick 索引 0,2,3,5,7,9,11,14），其中 6 篇沿用此預設｜推翻性檢索 `park use versus residential greenness exposure` 回傳 9 篇，讀後 3 篇確實檢驗過此預設｜樣本來源：2019–2025，Semantic Scholar ＋ Crossref
 - 預設 A2：〈自陳問卷測得的身體活動量足以取代加速規的客觀量測〉｜標題層掃描 31 篇（檢索詞 `self-report accelerometer physical activity agreement`，limit 31）｜摘要層精讀 5 篇（pick 索引 1,4,6,8,12），其中 4 篇沿用此預設｜推翻性檢索 `measurement error self-reported physical activity` 回傳 12 篇，讀後 2 篇確實檢驗過此預設｜樣本來源：2019–2025，Semantic Scholar
 - 預設 A3：〈居民願意步行前往公園的距離上限大約是 500 公尺〉〔印象，未驗證〕——摘要層精讀只有 2 篇（M′ < 3），不得作為 G3 輸入
+- 預設 A4：〈公園的使用強度可以用停留時間代表〉——本輪沒有替它跑取樣框
 
 ## 二、存活候選（生成 12 個 → 存活 3 個）
 
@@ -66,7 +67,7 @@
 
 | 候選 | 判定 | 淘汰原因 | 關鍵文獻 | 識別碼 | 發表型態 | 撤稿檢查 |
 |---|---|---|---|---|---|---|
-| C07 以住家到最近公園的距離預測居民身體活動量 |  | 摘要逐字引句：「Using distance from home to the nearest public park, we find that each additional 100 metres is associated with 3.4 fewer minutes of weekly moderate-to-vigorous physical activity among 5,200 urban adults.」母體、自變項、結果變項、研究設計四項全中。 | Author D et al. (2024) | DOI:10.5555/synthetic-0003 | 期刊 | 已查，Crossref 無記錄 |
+| C07 以住家到最近公園的距離預測居民身體活動量 | DONE | 摘要逐字引句：「Using distance from home to the nearest public park, we find that each additional 100 metres is associated with 3.4 fewer minutes of weekly moderate-to-vigorous physical activity among 5,200 urban adults.」母體、自變項、結果變項、研究設計四項全中。 | Author D et al. (2024) | DOI:10.5555/synthetic-0003 | 期刊 | 已查，Crossref 無記錄 |
 | C08 以公園設施稽核評分預測公園使用人次 | DONE | 摘要逐字引句：「A facility audit score explains 46 percent of the variance in observed visitor counts across 168 neighbourhood parks.」母體與結果變項與本候選相同，研究設計同為橫斷面稽核。 | Author N et al. (2023) | DOI:10.5555/synthetic-0013 | 會議 | 已查，Crossref 無記錄 |
 | C09 比較自陳與加速規測得的公園內身體活動量 | DONE | 摘要逐字引句：「We compare self-reported and accelerometer-measured park-based activity in the same participants and find no agreement beyond chance for sessions shorter than ten minutes.」四項對齊，含同樣的比較設計。 | Author O et al. (2024) | DOI:10.5555/synthetic-0014 | 期刊 | 已查，Crossref 無記錄 |
 | C10 建立綠地暴露與身體活動的劑量—反應曲線 | CROWDED | 三篇分別涵蓋本候選的三個子問題：暴露的量化方式（Author E）、劑量—反應函數的形狀（Author F）、跨城市泛化（Author G）；逐一比對後沒有剩餘的未涵蓋子問題，故非 ADJACENT。 | Author E et al. (2022)；Author F et al. (2023)；Author G et al. (2024) | DOI:10.5555/synthetic-0004；DOI:10.5555/synthetic-0005；DOI:10.5555/synthetic-0006 | 期刊、會議、期刊 | 已查，Crossref 無記錄 |

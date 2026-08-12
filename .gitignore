@@ -1,0 +1,11 @@
+# 金鑰絕不進 git
+.env
+.env.*
+*.env
+
+__pycache__/
+*.pyc
+.venv/
+
+# 打包產物不入庫
+research-gap-hunter.zip

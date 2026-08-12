@@ -54,6 +54,12 @@ EXPECTED = [
     # 大部分在它身上沒有對象；查核器必須從第一行的 H1 認出型別再套規則。
     # 這一份必須是綠的，否則就是拿缺口報告的門檻去量一份不下判決的報告。
     ("good_landscape.md", 0, set()),
+    # 同一個模式的另一種地形：一個**比年份視窗還年輕**的領域。六個家族有五個讀到的
+    # 那一頁幾乎全部落在切分年之後，於是〔判不出〕的三項條件同時成立，那五族標
+    # 〔判不出〕是正確答案。它必須是綠的——否則新增的第六個值只在紅樣本裡出現過，
+    # 「條件滿足時它是被接受的」就是一句沒有人驗過的話，而一個永遠不被接受的值
+    # 等於把作者逼回四個值裡挑措辭，也就是這次改動要消滅的東西。
+    ("good_landscape_young.md", 0, set()),
     # 兩個模式接起來的那一份：表頭帶〈地形來源〉，第一節同時有本輪量化的預設、
     # 承接自地形但未補取樣框的預設、以及承接後補了取樣框的預設。它必須是綠的，
     # 而且是「承接後補了框的預設拿去當 G3 輸入」這一種綠——那正是 SKILL.md
@@ -150,6 +156,21 @@ EXPECTED = [
     ("landscape_orphan_assumption.md", 1, {"LWALL-01"}),
     ("landscape_assertive.md", 1, {"LANG-01"}),
     ("landscape_no_tier.md", 1, {"STRUCT-02"}),
+    # STRUCT-02 的第二個臂：〈文獻工具〉不是佔位符，而是**跨欄照抄**——地形報告寫了
+    # 降級階梯表 hunt 那一欄的階 0 字串，於是表頭宣告了三件這個模式被禁止做的檢查。
+    # 舊契約（非佔位符即可）看不到它，而每一份地形報告都是照規格逐字抄來的。
+    ("landscape_hunt_tier_string.md", 1, {"STRUCT-02"}),
+    # LSTAT-01 的三個新臂，一份一種，因為它們的條件互相獨立：
+    #   glued        兩段子句被「其中」黏回一段（＝規格改掉的那個舊句型本身）
+    #   n_exceeds_m  第二段的 N > M，而 N 數在 M 那一頁裡——這條算術在舊句型下不存在
+    #   undecidable  〔判不出〕的方向（第二項）與多數（第三項）條件
+    # 方向那一份只能從 good_landscape_young.md 長出來（第三項在那裡是成立的），
+    # 多數那一份只能從 good_landscape.md 長出來（第二項在那裡不可能成立）——
+    # 兩個臂在同一份基準上會一起亮，而一起亮的樣本證明不了是哪一個亮的。
+    ("landscape_status_glued.md", 1, {"LSTAT-01"}),
+    ("landscape_status_n_exceeds_m.md", 1, {"LSTAT-01"}),
+    ("landscape_undecidable_alone.md", 1, {"LSTAT-01"}),
+    ("landscape_undecidable_wrong_direction.md", 1, {"LSTAT-01"}),
     # 讀不進來的行、列與表。這一條規則守的不是「報告寫錯了什麼」，是「查核器讀不到什麼」——
     # 以前這些全部靜默丟掉，於是缺陷要嘛完全不出現，要嘛偽裝成計數對不起來（RECON-01
     # 說「結算寫已淘汰 6、第四節實際有 5 列」，而 6 是對的、壞的是那一列的形狀）。
@@ -190,7 +211,8 @@ EXPECTED = [
 
 # 手寫的基準樣本；其餘全部由 make_fixtures.py 生成。
 HANDWRITTEN = {"good_report.md", "good_nosearch_report.md", "chinese_index_na.md",
-               "good_landscape.md", "good_inherited_report.md", "good_recon_report.md"}
+               "good_landscape.md", "good_landscape_young.md",
+               "good_inherited_report.md", "good_recon_report.md"}
 # 「差幾行」是單一維度的**代理指標**，而有三種缺陷它算不準。豁免掉的是這個代理，
 # 不是「只壞一個維度」那條規則本身——三份都由 make_fixtures.py 生成，所以單一維度
 # 照樣是被建構出來的，不是靠肉眼維持。每一份的理由不同，各自寫出來：

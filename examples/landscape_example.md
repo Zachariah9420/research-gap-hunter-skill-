@@ -33,7 +33,13 @@ HTML 註解圍起來**，跟 [`worked_example.md`](worked_example.md) 同一個�
 教學文字不受查核，圍欄之內一條都不放寬。`python evals/format_check.py
 examples/landscape_example.md` 今天跑出來是 exit 0。
 
-**但要知道地形這一套規則刻意很薄**：`evals/format_check.py` 對地形報告只有五條自己的
+**本檔的〈狀態〉欄用的是兩段子句的句型**（前段是索引自報的寬鬆總數、或逐字寫「未回傳
+總數（原因）」，後段是這一輪真的讀到的那一頁與頁內的年份計數），中間**沒有**「其中」
+——那兩個數字不是同一個母體。表頭〈文獻工具〉抄的是降級階梯表 **landscape 那一欄**，
+不是 hunt 那一欄。舊版的本檔兩處都不是這樣寫的，改動的來由見 `README.md`〈Where these
+three rules came from〉。
+
+**還要知道地形這一套規則刻意很薄**：`evals/format_check.py` 對地形報告只有五條自己的
 規則（表頭宣告、不得出現判定詞彙、成本必填、狀態合法且掛檢索證據、牆表與預設雙向對
 帳），外加跨模式共用的幾條。**它驗的是「有沒有照格式騙人」，不驗這些家族切得對不對、
 那些代價是不是真的。** 那一層只有人讀得出來。
@@ -47,10 +53,10 @@ examples/landscape_example.md` 今天跑出來是 exit 0。
 # 領域地形報告：建築物室內定位
 
 **模式**：領域地形（盤點做法，不淘汰、不判新穎性）
-**文獻工具**：google-scholar MCP；未做撤稿查核，存在性僅單源
+**文獻工具**：google-scholar MCP；本模式無 brief／pick，錨定文獻可能無識別碼
 **檢索語言**：英文
 **這份報告不做什麼**：不淘汰任何做法、不判斷新穎性、不宣稱任何做法沒有人做過。要新穎性判定請跑缺口獵捕。
-**家族結算**：盤點 5 個家族，其中〔涵蓋不足〕1 個
+**家族結算**：盤點 5 個家族，其中〔涵蓋不足〕1 個、〔判不出〕0 個
 **檢索量**：實際跑了 9 次檢索
 
 ## 一、一眼表
@@ -71,7 +77,7 @@ examples/landscape_example.md` 今天跑出來是 exit 0。
 - **買到什麼**：完全利用既有的無線網路設備，不必為了定位再加裝任何硬體。
 - **付出什麼**：那張地圖是勞力密集的一次性資產，環境一改（隔間、家具、人流）就開始失準，重測成本落在營運方。
 - **錨定文獻**：`[示例] Fingerprint-based indoor localization: a decade in review`，Halloran & Xu (2019)，DOI:10.0000/EX-L.01；`[示例] Radio map ageing and its effect on positioning error`，Bergqvist (2021)，DOI:10.0000/EX-L.02；`[示例] Crowdsourced radio map maintenance in shopping malls`，Nakagawa et al. (2022)，DOI:10.0000/EX-L.03；`[示例] Device heterogeneity in RSSI fingerprinting`，Duarte & Kim (2020)，DOI:10.0000/EX-L.04
-- **狀態**：飽和｜`wifi fingerprinting indoor positioning` 在 google-scholar MCP 回傳 40 筆，其中 2021 之後 6 筆
+- **狀態**：飽和｜`wifi fingerprinting indoor positioning` 在 google-scholar MCP 未回傳總數（工具不報索引計數）；本次實際讀取回傳的前 40 筆，其中 2021 之後 6 筆
 - **結構上做不到**：它的輸出是「與地圖上哪一點最像」的相似度排序，本身不含任何運動模型，所以單靠它得不到方向與速度；要拿到那些，得再疊一個濾波器或另一個家族。
 - **默默預設**：F1-a〈量測完成之後，環境的無線電特性在使用期間維持穩定〉；F1-b〈不同型號的裝置量到的訊號強度可以互相比較〉
 - **進入成本**：一支手機加一套開源比對程式就能起步；真正的成本是量測——一層樓的密集採點大約 1 人×1 週，而且要重複付。
@@ -82,7 +88,7 @@ examples/landscape_example.md` 今天跑出來是 exit 0。
 - **買到什麼**：信標單價低、電池可撐數年，佈建與汰換都便宜，是目前最容易讓業主點頭的一種。
 - **付出什麼**：訊號強度換距離這件事本身不穩，人體遮蔽與多路徑會讓同一個位置量到差很多的值，精度通常停在數公尺。
 - **錨定文獻**：`[示例] BLE beacon positioning in retail environments`，Ferreira (2020)，DOI:10.0000/EX-L.11；`[示例] Path-loss model mismatch in crowded indoor spaces`，Osei & Lindholm (2021)，DOI:10.0000/EX-L.12；`[示例] Beacon density versus accuracy: an empirical trade-off`，Ruiz (2022)，DOI:10.0000/EX-L.13；`[示例] Battery-life planning for large beacon deployments`，Tanaka & Brody (2023)，DOI:10.0000/EX-L.14
-- **狀態**：活躍｜`bluetooth low energy beacon indoor positioning` 在 google-scholar MCP 回傳 36 筆，其中 2021 之後 19 筆
+- **狀態**：活躍｜`bluetooth low energy beacon indoor positioning` 在 google-scholar MCP 未回傳總數（工具不報索引計數）；本次實際讀取回傳的前 36 筆，其中 2021 之後 19 筆
 - **結構上做不到**：它量的是訊號強度這個純量，不含角度資訊，所以單一信標無法給出方位；要解出位置至少要三個信標同時可見。
 - **默默預設**：F2-a〈訊號強度與距離之間存在可用的單調關係〉；F2-b〈空間的擁有者願意讓你事先佈建並長期維護硬體〉
 - **進入成本**：數十顆信標（數百美元）加一次現場佈設；沒有場地的擁有權或使用許可，這個家族對你等於不存在。
@@ -93,7 +99,7 @@ examples/landscape_example.md` 今天跑出來是 exit 0。
 - **買到什麼**：完全不依賴任何外部訊號或基礎設施，走進電梯、地下室、訊號死角都照樣有輸出。
 - **付出什麼**：誤差隨時間單調累積，數分鐘就會飄到不能用，所以它幾乎不能單獨使用，一定要被別的家族週期性拉回來。
 - **錨定文獻**：`[示例] Pedestrian dead reckoning with smartphone IMUs: error growth characteristics`，Aaltonen (2018)，DOI:10.0000/EX-L.21；`[示例] Step-length estimation across gait types`，Moreau & Ishikawa (2021)，DOI:10.0000/EX-L.22；`[示例] Drift correction by opportunistic anchors`，Petrov (2023)，DOI:10.0000/EX-L.23
-- **狀態**：活躍｜`pedestrian dead reckoning smartphone indoor` 在 google-scholar MCP 回傳 28 筆，其中 2021 之後 15 筆
+- **狀態**：活躍｜`pedestrian dead reckoning smartphone indoor` 在 google-scholar MCP 未回傳總數（工具不報索引計數）；本次實際讀取回傳的前 28 筆，其中 2021 之後 15 筆
 - **結構上做不到**：它算的是位移增量，沒有任何絕對參考，所以它無法自己決定起點，也無法在飄掉之後自己發現飄掉了。
 - **默默預設**：F3-a〈起始位置是已知的，而且路徑是連續的、不會被瞬間搬移〉；F3-b〈被定位的是一個以人類步態行走的人，步伐可被模型化〉
 - **進入成本**：只要一支手機，是五個家族裡最低的；但要做到堪用，得補一套校正機制，那部分的難度不低。
@@ -104,7 +110,7 @@ examples/landscape_example.md` 今天跑出來是 exit 0。
 - **買到什麼**：公分級精度，是五個家族裡唯一能穩定做到這個量級的。
 - **付出什麼**：需要專用的錨點與標籤硬體，單點成本比藍牙高一個量級；而且精度依賴視線路徑，被牆或人擋住就退化。
 - **錨定文獻**：`[示例] UWB ranging accuracy under non-line-of-sight conditions`，Vasquez & Aho (2021)，DOI:10.0000/EX-L.31；`[示例] Deployment cost of UWB anchor networks in warehouses`，Lindgren (2022)，DOI:10.0000/EX-L.32；`[示例] Consumer UWB chipsets and the near-term device base`（2023）〔無識別碼〕
-- **狀態**：新興｜`ultra-wideband indoor positioning accuracy` 在 google-scholar MCP 回傳 22 筆，其中 2021 之後 17 筆
+- **狀態**：新興｜`ultra-wideband indoor positioning accuracy` 在 google-scholar MCP 未回傳總數（工具不報索引計數）；本次實際讀取回傳的前 22 筆，其中 2021 之後 17 筆
 - **結構上做不到**：它量的是兩點之間的距離，不含語意，所以它不知道自己在哪一個房間、也不知道那條路徑有沒有穿牆——房間層級的判斷要另外接一張平面圖。
 - **默默預設**：F4-a〈空間的擁有者願意讓你事先佈建並長期維護硬體〉；F4-b〈量測的兩點之間存在直達的視線路徑〉
 - **進入成本**：一組開發套件（數百至上千美元）＋一次現場錨點佈設；比藍牙貴，門檻主要在硬體不在演算法。
@@ -121,9 +127,15 @@ examples/landscape_example.md` 今天跑出來是 exit 0。
 - **進入成本**：一支中高階手機加一套開源視覺定位框架；真正的門檻是事先建圖，以及維持地圖與現場一致。
 
 > 〔涵蓋不足〕的處理示範：F5 只湊到 2 篇錨定文獻，未達 3 篇的下限。依規則**標了就走**
-> ——不追、不補搜、不把它升級成一個小調查。它的〈狀態〉欄不掛檢索句型，因為那個句型
-> 是用來支撐飽和／活躍／新興／衰退這四個判斷的，而這裡沒有判斷。它的預設照樣寫，因為
+> ——不追、不補搜、不把它升級成一個小調查。它的〈狀態〉欄不掛檢索句型，而**〔涵蓋不足〕
+> 是唯一免掛的值**：其餘五個（飽和／活躍／新興／衰退／〔判不出〕）都要掛，因為它們都是
+> 拿數字撐起來的判斷，而〔涵蓋不足〕宣告的正是「沒有數字可掛」。它的預設照樣寫，因為
 > 〈默默預設〉講的是這個做法本身的性質，跟這一輪查了幾篇無關。
+>
+> 本檔沒有任何一個家族標〔判不出〕，這是對的：那個值要三項同時成立，而這裡第二、三項
+> 都不成立。F4 的 17／22 是本檔近年占比最高的一族，仍然不到八成；就算到了，第三項也擋
+> 著——**多數家族並不是這樣**（F1 只有 6／40）。一個成熟領域裡某一族特別熱，那是真的
+> 熱，不是儀器分不出來。〔判不出〕要的是整份報告每一族都貼著上限的那種情形。
 
 ## 三、實際上怎麼疊
 
@@ -138,10 +150,10 @@ examples/landscape_example.md` 今天跑出來是 exit 0。
 
 ## 四、能量在哪裡
 
-- `ultra-wideband indoor positioning accuracy` 在 google-scholar MCP 回傳 22 筆，其中 2021 之後 17 筆——比例是五個家族裡最高的。
-- `wifi fingerprinting indoor positioning` 在 google-scholar MCP 回傳 40 筆，其中 2021 之後 6 筆——總量最大、近年占比最低。
-- `pedestrian dead reckoning smartphone indoor` 在 google-scholar MCP 回傳 28 筆，其中 2021 之後 15 筆。
-- `bluetooth low energy beacon indoor positioning` 在 google-scholar MCP 回傳 36 筆，其中 2021 之後 19 筆。
+- `ultra-wideband indoor positioning accuracy` 在 google-scholar MCP 未回傳總數（工具不報索引計數）；本次實際讀取回傳的前 22 筆，其中 2021 之後 17 筆——近年占比是五個家族裡最高的。
+- `wifi fingerprinting indoor positioning` 在 google-scholar MCP 未回傳總數（工具不報索引計數）；本次實際讀取回傳的前 40 筆，其中 2021 之後 6 筆——讀到的那一頁最長，近年占比最低。本輪沒有拿到任何索引總數，所以**不能**說它「總量最大」——那句話講的是母體，而本檔手上只有那一頁。
+- `pedestrian dead reckoning smartphone indoor` 在 google-scholar MCP 未回傳總數（工具不報索引計數）；本次實際讀取回傳的前 28 筆，其中 2021 之後 15 筆。
+- `bluetooth low energy beacon indoor positioning` 在 google-scholar MCP 未回傳總數（工具不報索引計數）；本次實際讀取回傳的前 36 筆，其中 2021 之後 19 筆。
 
 〔印象，未驗證〕近三年的標題裡「融合」「多來源」出現得比單一家族的名字更頻繁，看起來
 研究重心正在從「哪一種最準」移到「怎麼把幾種接起來」。本輪沒有為這個觀察跑檢索，所以
@@ -151,15 +163,15 @@ examples/landscape_example.md` 今天跑出來是 exit 0。
 
 | # | 家族 | 查詢詞（逐字） | 回傳筆數 | 前三筆標題（逐字，來自工具回傳） |
 |---|---|---|---|---|
-| 1 | （盤家族） | `indoor positioning survey` | 24 | `[示例] A survey of indoor localization techniques` / `[示例] Indoor localization for mobile devices: a survey of sensing modalities` / `[示例] Benchmarking indoor positioning: lessons from five competitions` |
-| 2 | （盤家族） | `indoor positioning review` | 31 | `[示例] Indoor positioning technologies: a structured review` / `[示例] A critical review of infrastructure requirements in indoor localization` / `[示例] Hybrid indoor positioning: a review of fusion architectures` |
-| 3 | （盤家族） | `indoor positioning taxonomy` | 18 | `[示例] Indoor positioning systems: a taxonomy of sensing modalities` / `[示例] Classifying indoor localization by infrastructure dependence` / `[示例] Toward a shared vocabulary for indoor positioning` |
-| 4 | F1 | `wifi fingerprinting indoor positioning` | 40 | `[示例] Fingerprint-based indoor localization: a decade in review` / `[示例] Radio map ageing and its effect on positioning error` / `[示例] Device heterogeneity in RSSI fingerprinting` |
-| 5 | F2 | `bluetooth low energy beacon indoor positioning` | 36 | `[示例] BLE beacon positioning in retail environments` / `[示例] Path-loss model mismatch in crowded indoor spaces` / `[示例] Beacon density versus accuracy: an empirical trade-off` |
-| 6 | F3 | `pedestrian dead reckoning smartphone indoor` | 28 | `[示例] Pedestrian dead reckoning with smartphone IMUs: error growth characteristics` / `[示例] Step-length estimation across gait types` / `[示例] Drift correction by opportunistic anchors` |
-| 7 | F4 | `ultra-wideband indoor positioning accuracy` | 22 | `[示例] UWB ranging accuracy under non-line-of-sight conditions` / `[示例] Deployment cost of UWB anchor networks in warehouses` / `[示例] Consumer UWB chipsets and the near-term device base` |
-| 8 | F5 | `visual indoor localization relocalization` | 9 | `[示例] Visual relocalization in large indoor scenes` / `[示例] Texture-poor environments and visual SLAM failure modes` |
-| 9 | （第六節 W3） | `infrastructure-free indoor positioning` | 11 | `[示例] Infrastructure-free indoor positioning using ambient magnetic fields` / `[示例] Opportunistic signals of convenience for localization` / `[示例] Zero-deployment positioning: a position paper` |
+| 1 | （盤家族） | `indoor positioning survey` | 無總數（工具不報索引計數）／讀 24 | `[示例] A survey of indoor localization techniques` / `[示例] Indoor localization for mobile devices: a survey of sensing modalities` / `[示例] Benchmarking indoor positioning: lessons from five competitions` |
+| 2 | （盤家族） | `indoor positioning review` | 無總數（工具不報索引計數）／讀 31 | `[示例] Indoor positioning technologies: a structured review` / `[示例] A critical review of infrastructure requirements in indoor localization` / `[示例] Hybrid indoor positioning: a review of fusion architectures` |
+| 3 | （盤家族） | `indoor positioning taxonomy` | 無總數（工具不報索引計數）／讀 18 | `[示例] Indoor positioning systems: a taxonomy of sensing modalities` / `[示例] Classifying indoor localization by infrastructure dependence` / `[示例] Toward a shared vocabulary for indoor positioning` |
+| 4 | F1 | `wifi fingerprinting indoor positioning` | 無總數（工具不報索引計數）／讀 40 | `[示例] Fingerprint-based indoor localization: a decade in review` / `[示例] Radio map ageing and its effect on positioning error` / `[示例] Device heterogeneity in RSSI fingerprinting` |
+| 5 | F2 | `bluetooth low energy beacon indoor positioning` | 無總數（工具不報索引計數）／讀 36 | `[示例] BLE beacon positioning in retail environments` / `[示例] Path-loss model mismatch in crowded indoor spaces` / `[示例] Beacon density versus accuracy: an empirical trade-off` |
+| 6 | F3 | `pedestrian dead reckoning smartphone indoor` | 無總數（工具不報索引計數）／讀 28 | `[示例] Pedestrian dead reckoning with smartphone IMUs: error growth characteristics` / `[示例] Step-length estimation across gait types` / `[示例] Drift correction by opportunistic anchors` |
+| 7 | F4 | `ultra-wideband indoor positioning accuracy` | 無總數（工具不報索引計數）／讀 22 | `[示例] UWB ranging accuracy under non-line-of-sight conditions` / `[示例] Deployment cost of UWB anchor networks in warehouses` / `[示例] Consumer UWB chipsets and the near-term device base` |
+| 8 | F5 | `visual indoor localization relocalization` | 無總數（工具不報索引計數）／讀 9 | `[示例] Visual relocalization in large indoor scenes` / `[示例] Texture-poor environments and visual SLAM failure modes` |
+| 9 | （第六節 W3） | `infrastructure-free indoor positioning` | 無總數（工具不報索引計數）／讀 11 | `[示例] Infrastructure-free indoor positioning using ambient magnetic fields` / `[示例] Opportunistic signals of convenience for localization` / `[示例] Zero-deployment positioning: a position paper` |
 
 ## 六、這個領域的牆（默默預設總表）
 
@@ -180,7 +192,10 @@ examples/landscape_example.md` 今天跑出來是 exit 0。
 |---|---|---|
 | 每個家族都有〈付出什麼〉 | 成本必填，查不到寫「還沒查到」不留白 | 只寫買到什麼的家族看起來免費，讀者會以為它是明顯的最佳解——而真的沒有代價的做法早就把別人清光了 |
 | F5 標〔涵蓋不足〕就收手 | 錨定不足 3 篇就標記，不追、不補搜 | 為了把表格填滿而編第三筆錨定文獻，這是這個模式最可能的造假點 |
-| 〈狀態〉一律掛檢索句型 | 趨勢只能寫成「某查詢在某索引回傳幾筆」 | 「這個方向正在爆發」變成領域事實的斷言，而它其實只是印象 |
+| 〈狀態〉掛的是**兩段子句**的檢索句型 | 前段是索引自報的寬鬆總數（本檔沒有，所以逐字寫「未回傳總數」），後段是這次真的讀到的那一頁與頁內的年份計數；兩段之間沒有「其中」 | 兩個數字被一個「其中」串成一個母體，報告等於印了一句它自己知道是假的話——舊句型就是這樣，而寫報告的人只好在旁邊再補一句去拆穿它 |
+| 第四節那句「不能說它總量最大」 | 頁內數字只描述那一頁，不描述索引 | 40 筆被讀成「這個領域有 40 篇」，而它其實只是本輪讀到的一頁 |
+| 表頭〈文獻工具〉抄的是階梯表 landscape 那一欄 | 兩個模式共用同一組階與條件，各讀自己那一欄；跨欄照抄是違規 | 抄到 hunt 那一欄，地形報告的表頭就宣告了它被禁止執行的撤稿、存在性與滾雪球查核 |
+| 沒有任何一族標〔判不出〕 | 那個值要三項同時成立，其中一項是「這份報告多數家族都是這樣」 | 一個成熟領域裡最熱的那一族被誤標成〔判不出〕，而它其實是真的熱——那一格會從資訊變成聳肩 |
 | 第四節最後那句〔印象，未驗證〕 | 寫不成檢索句型的觀察要另起一行標記 | 印象混進檢索結果裡，整節的可信度一起被拉低 |
 | 〈結構上做不到〉寫方法的性質 | 寫「它的輸出不含方向」，不寫「沒有人用它做過方向估計」 | 一個沒有搜過的不存在斷言混進報告，而這正是本 skill 唯一絕不放寬的兩條之一 |
 | 第六節每個編號都對得回第二節 | 牆只能從已寫下的預設長出來 | 憑空想出來的牆混進總表，而它看起來最像洞見、也最沒有來源 |
@@ -200,7 +215,7 @@ examples/landscape_example.md` 今天跑出來是 exit 0。
 10–15 次，加上推導那三輪是 13–18 次。本檔一個家族只跑一次，總數少於那個字面預算。理由寫在這裡
 而不是靜靜地少跑：這五個家族的名稱在領域裡都是固定術語，第一次查詢就回得出可用的錨定文獻與
 〈狀態〉句型，沒有換詞重搜的需要——那個 2–3 次的預算是留給**第一次回傳太少、或術語根本不確定**
-的家族的，不是每個家族都要花掉的定額。F5 就是被那第一次查詢擋下來的例子：第 8 列查了，回傳 9 筆，
+的家族的，不是每個家族都要花掉的定額。F5 就是被那第一次查詢擋下來的例子：第 8 列查了，讀到 9 筆，
 仍然湊不到 3 篇錨定文獻，於是照規則標〔涵蓋不足〕收手——**而不是**再跑兩次去把它補滿。
 
 反過來的那一半同樣重要：一個家族一次都沒查就寫得出〈狀態〉，那是印象不是檢索，這個模式沒有那種

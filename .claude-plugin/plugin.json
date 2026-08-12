@@ -1,0 +1,21 @@
+{
+  "name": "research-gap-hunter",
+  "description": "For the stage before you have a research topic. landscape charts a field's technique families — what each buys, what each costs, and what they all silently assume. hunt over-generates candidates and then spends its whole budget trying to kill them with journal search, reporting what survived and naming the paper behind every elimination.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Zachariah9420",
+    "url": "https://github.com/Zachariah9420"
+  },
+  "homepage": "https://github.com/Zachariah9420/research-gap-hunter-skill-",
+  "repository": "https://github.com/Zachariah9420/research-gap-hunter-skill-",
+  "license": "MIT",
+  "keywords": [
+    "research-gap",
+    "novelty",
+    "thesis-topic",
+    "literature-search",
+    "field-survey",
+    "academic",
+    "research"
+  ]
+}

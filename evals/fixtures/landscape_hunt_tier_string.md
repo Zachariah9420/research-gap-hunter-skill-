@@ -1,7 +1,7 @@
 # 領域地形報告：都市綠地暴露量測
 
 **模式**：領域地形（盤點做法，不淘汰、不判新穎性）
-**文獻工具**：lit-review lit_api.py（本模式僅用 search／brief／pick，未執行機器查核）
+**文獻工具**：lit-review lit_api.py（存在性、撤稿、滾雪球均已機器查核）
 **檢索語言**：英文
 **這份報告不做什麼**：不淘汰任何做法、不判斷新穎性、不宣稱任何做法沒有人做過。要新穎性判定請跑缺口獵捕。
 **家族結算**：盤點 7 個家族，其中〔涵蓋不足〕1 個、〔判不出〕0 個
@@ -9,7 +9,7 @@
 
 > 本檔是 evals 用的合成樣本。文中所有文獻皆為虛構（Author BA、Author BB……），
 > 識別碼使用 Crossref 測試前綴 10.5555，不對應任何真實出版品。
-> 相對於 good_landscape.md，本檔刻意壞掉一處：F5 只寫了買到什麼，付出什麼被填成佔位符——只有一面的描述，是這個模式最容易誤導人的方式。
+> 相對於 good_landscape.md，本檔刻意壞掉一處：表頭的〈文獻工具〉照抄了降級階梯表**hunt 那一欄**的階 0 字串，而那一格宣告「存在性、撤稿、滾雪球均已機器查核」——那三件事是淘汰配備，地形模式在定義上不跑。這一份釘的是那張表為什麼要分兩欄：同一個字串在一邊是實話、在另一邊是假話，而規格又要求逐字照抄，於是每一份地形報告都在表頭宣告三件它被禁止做的檢查。它不是佔位符（no_tool_tier.md 釘的是那一種），所以舊契約「非佔位符即可」看不到它。
 
 ## 一、一眼表
 
@@ -73,7 +73,7 @@
 
 - **一句話**：用手機或穿戴裝置的定位軌跡，切出落在綠地多邊形內的停留片段。
 - **買到什麼**：個人層次、有時間戳的實際停留，可以同時回答去了哪裡、待多久、什麼時段。
-- **付出什麼**：—
+- **付出什麼**：願意交出定位資料的人本身就是特定族群，樣本自選；都市峽谷的定位誤差可達數十公尺，公園邊界附近的判定不穩；資料授權與隱私審查的行政成本高於方法本身。
 - **錨定文獻**：Author BR et al. (2020)〈GPS-based measurement of green space exposure〉，DOI:10.5555/synthetic-2018；Author BS et al. (2022)〈Positional error in urban canyons and activity space delineation〉，DOI:10.5555/synthetic-2019；Author BT (2023)〈Participation bias in location-sharing studies〉，DOI:10.5555/synthetic-2020；Author BU et al. (2024)〈Dwell-time segmentation for park visit detection〉，DOI:10.5555/synthetic-2021
 - **狀態**：活躍｜`gps trajectory green space exposure dwell time` 在 Semantic Scholar 的寬鬆關鍵字總數 143 筆（工具自報，未加年份條件）；本次實際讀取回傳的前 20 筆，其中 2023 之後 12 筆
 - **結構上做不到**：它記錄的是裝置的位置，本身不帶持有者在該位置做了什麼；要講活動內容或強度，得再接加速規或自陳。

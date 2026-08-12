@@ -9,7 +9,7 @@
 
 > 本檔是 evals 用的合成樣本。文中所有文獻皆為虛構（Author BA、Author BB……），
 > 識別碼使用 Crossref 測試前綴 10.5555，不對應任何真實出版品。
-> 相對於 good_landscape.md，本檔刻意壞掉一處：F5 只寫了買到什麼，付出什麼被填成佔位符——只有一面的描述，是這個模式最容易誤導人的方式。
+> 相對於 good_landscape.md，本檔刻意壞掉一處：F6 改標〔判不出〕，而這份報告的**多數家族並不是這樣**（六個有數字的家族裡只有 F6 的那一頁近年占比到八成）。〔判不出〕的第三項條件就是在分這件事：一個成熟領域裡某一族特別熱，那是〔活躍〕、資訊是真的；整份報告每一族都貼著上限，才是這個領域比視窗還年輕、四個值退化成兩個。少了第三項，〔判不出〕會變成一個「這一族我不想判」的出口，而它本來要說的是「這一欄在這個領域鑑別力有限」。
 
 ## 一、一眼表
 
@@ -73,7 +73,7 @@
 
 - **一句話**：用手機或穿戴裝置的定位軌跡，切出落在綠地多邊形內的停留片段。
 - **買到什麼**：個人層次、有時間戳的實際停留，可以同時回答去了哪裡、待多久、什麼時段。
-- **付出什麼**：—
+- **付出什麼**：願意交出定位資料的人本身就是特定族群，樣本自選；都市峽谷的定位誤差可達數十公尺，公園邊界附近的判定不穩；資料授權與隱私審查的行政成本高於方法本身。
 - **錨定文獻**：Author BR et al. (2020)〈GPS-based measurement of green space exposure〉，DOI:10.5555/synthetic-2018；Author BS et al. (2022)〈Positional error in urban canyons and activity space delineation〉，DOI:10.5555/synthetic-2019；Author BT (2023)〈Participation bias in location-sharing studies〉，DOI:10.5555/synthetic-2020；Author BU et al. (2024)〈Dwell-time segmentation for park visit detection〉，DOI:10.5555/synthetic-2021
 - **狀態**：活躍｜`gps trajectory green space exposure dwell time` 在 Semantic Scholar 的寬鬆關鍵字總數 143 筆（工具自報，未加年份條件）；本次實際讀取回傳的前 20 筆，其中 2023 之後 12 筆
 - **結構上做不到**：它記錄的是裝置的位置，本身不帶持有者在該位置做了什麼；要講活動內容或強度，得再接加速規或自陳。
@@ -86,7 +86,7 @@
 - **買到什麼**：連續、不倚賴受訪者記憶的使用量，可以看出時段分布與改造前後的變化。
 - **付出什麼**：只數得到人次、數不出是誰，無法連到個人特徵或健康結果；設備需要供電與維護，遮蔽與並排通過會低估。
 - **錨定文獻**：Author BV et al. (2021)〈Automated pedestrian counters in park evaluation〉，DOI:10.5555/synthetic-2022；Author BW et al. (2023)〈Undercounting in infrared trail counters〉，DOI:10.5555/synthetic-2023；Author BX et al. (2024)〈Continuous footfall data for park renovation assessment〉，DOI:10.5555/synthetic-2024
-- **狀態**：新興｜`pedestrian counter park footfall continuous` 在 Semantic Scholar 的寬鬆關鍵字總數 38 筆（工具自報，未加年份條件）；本次實際讀取回傳的前 20 筆，其中 2023 之後 18 筆
+- **狀態**：〔判不出〕｜`pedestrian counter park footfall continuous` 在 Semantic Scholar 的寬鬆關鍵字總數 38 筆（工具自報，未加年份條件）；本次實際讀取回傳的前 20 筆，其中 2023 之後 18 筆
 - **結構上做不到**：它的輸出是通過事件的計數，本身不帶身分，同一個人來回會被記兩次；要講人數或個人劑量，得另外做一次校正調查。
 - **默默預設**：F6-a〈通過出入口的人次，可以代表這段期間的使用強度〉
 - **進入成本**：設備採購與場地許可，前置知識是時間序列處理；一個人約二至三週，場地許可是主要瓶頸。

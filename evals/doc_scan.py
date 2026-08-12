@@ -520,6 +520,78 @@ if _missing_status:
 else:
     ok("〈狀態〉的 %d 個合法值 SKILL.md 都寫過" % len(fc.LAND_STATUS_VALUES))
 
+# 6f-2. 降級階梯：format_check.py 寫死的八個字串，必須逐字等於
+# references/elimination-engine.md〈四、降級階梯〉那張表**對應那一欄**的那一格。
+# STRUCT-02 現在是逐字比對，所以這八個字串是「規格說什麼」與「查核器收什麼」之間
+# 唯一的介面：任何一個字漂掉，一份**照規格抄的**報告會被判 STRUCT-02，
+# 而報告是對的、查核器是錯的。這也是 D1 的防線本身——那張表分成兩欄，
+# 就是為了讓地形報告不必在表頭宣告三件它被禁止做的檢查；兩欄要是又被合回去，
+# 這裡會紅，而不是安靜地回到舊規格。
+_LADDER = re.search(r"^## 四、降級階梯.*?(?=^## )", read("references/elimination-engine.md"),
+                    re.S | re.M) if exists("references/elimination-engine.md") else None
+if _LADDER is None:
+    fail("references/elimination-engine.md 找不到〈四、降級階梯〉那一節，"
+         "format_check.TIER_FIXED 的八個字串無從比對——而 STRUCT-02 是逐字比對的")
+else:
+    _rows = {}
+    for _raw in _LADDER.group(0).splitlines():
+        if not _raw.lstrip().startswith("|"):
+            continue
+        _cells = [c.strip().strip("`").strip() for c in _raw.strip().strip("|").split("|")]
+        if len(_cells) >= 4 and _cells[0].isdigit():
+            _rows[int(_cells[0])] = (_cells[2], _cells[3])
+    print("    降級階梯表讀到 %d 階（%s）" % (len(_rows), "、".join(str(k) for k in sorted(_rows))))
+    _want_tiers = sorted(set(fc.TIER_FIXED["gap"]) | {2})
+    if sorted(_rows) != _want_tiers:
+        fail("references/elimination-engine.md〈四、降級階梯〉讀到的階是 %s，"
+             "format_check.py 認得的是 %s" % (sorted(_rows), _want_tiers))
+    for _tier, (_hunt, _land) in sorted(_rows.items()):
+        for _mode, _cell, _col in (("gap", _hunt, 2), ("landscape", _land, 3)):
+            if _tier == 2:
+                _want = "<實際用的工具名>" + fc.TIER2_TAIL[_mode]
+            else:
+                _want = fc.TIER_FIXED[_mode].get(_tier)
+            if _want is None:
+                fail("format_check.TIER_FIXED[%r] 沒有階 %d，但階梯表有" % (_mode, _tier))
+            elif _cell != _want:
+                fail("降級階梯階 %d 的「%s」那一格與 format_check.py 不一致：\n"
+                     "        規格：%s\n        查核器：%s" % (_tier, _mode, _cell, _want))
+            else:
+                ok("降級階梯階 %d／%s 與 format_check.py 逐字一致" % (_tier, _mode))
+    # 兩欄不得相同：相同就等於沒有分欄，而 D1 正是「同一個字串在一邊是實話、
+    # 在另一邊是假話」。這一條擋的是「把兩欄改回同一句」這種看起來像整理的編輯。
+    for _tier, (_hunt, _land) in sorted(_rows.items()):
+        if _hunt == _land:
+            fail("降級階梯階 %d 的 hunt 欄與 landscape 欄字串相同——分欄形同不存在，"
+                 "而 STRUCT-02 的跨欄違規在這一階變成抓不到" % _tier)
+
+# 6f-3. 〈狀態〉的檢索句型：SKILL.md 印出來的那兩個樣板，本身要通得過查核器。
+# 與 6h（rgh-block 範例）同一條原則：**照規格抄一份，就要是查核器收得下的一份**。
+# 這一條是 D2 的防線——句型從「回傳 X 筆，其中 <年份> 之後 Y 筆」拆成兩段子句之後，
+# 規格與查核器各有一份寫法，只要有一邊漂掉，照規格寫的報告就會被判 LSTAT-01。
+_TMPL_SUBS = [("<查詢詞>", "greenness exposure"), ("<索引>", "Semantic Scholar"), ("<X>", "318"),
+              ("<M>", "20"), ("<N>", "3"), ("<年份>", "2023"), ("<原因>", "工具不報索引計數")]
+# 只取「整個區塊就是那一句」的樣板；報告骨架那個大區塊裡也有這一句，
+# 但它整段餵進來驗不出東西（那一段的形狀由地形樣板那幾條規則管）。
+_status_tmpls = [b["body"].strip() for b in fc.find_fenced_blocks(skill)
+                 if "本次實際讀取回傳的前" in b["body"] and "\n" not in b["body"].strip()]
+if not _status_tmpls:
+    fail("SKILL.md 找不到任何〈狀態〉檢索句型的樣板區塊（含「本次實際讀取回傳的前」），"
+         "寫報告的人沒有可以照抄的形狀")
+else:
+    print("    SKILL.md 的〈狀態〉句型樣板：%d 個" % len(_status_tmpls))
+    _probe = fc.LandscapeChecker.__new__(fc.LandscapeChecker)
+    for _t in _status_tmpls:
+        _line = _t
+        for _a, _b in _TMPL_SUBS:
+            _line = _line.replace(_a, _b)
+        _problem = _probe._status_problem("活躍｜" + _line, True)
+        if _problem:
+            fail("SKILL.md 的〈狀態〉句型樣板照抄之後過不了 LSTAT-01：%s\n        樣板：%s"
+                 % (_problem, _t[:80]))
+        else:
+            ok("SKILL.md 的〈狀態〉句型樣板照抄之後通過 LSTAT-01（%s…）" % _t[:28])
+
 # 6g. rgh-block 的三個逐字字串：圍欄標籤、schema 版本、四個 status 列舉值。
 # 這三樣是「查核器照著找」與「報告照著寫」之間唯一的介面；任何一個漂掉，
 # 一份**照著 SKILL.md 寫的**報告會被判 BLOCK-01，而報告是對的、查核器是錯的。

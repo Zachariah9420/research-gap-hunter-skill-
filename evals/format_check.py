@@ -163,6 +163,12 @@ LANDSCAPE_MODE_RE = re.compile(r"^模式\s*[：:]\s*領域地形")
 # 這條豁免不是一句宣告就能買到的——見 Checker._recon_declared()。
 RECON_MODE_RE = re.compile(r"^模式\s*[：:]\s*偵察抽樣")
 
+# 表頭裡「這一輪是偵察模式」的自我宣告，不限〈模式〉那一行（〈降級聲明〉也算）。
+# 只用在〈文獻工具〉的逐字豁免上，見 Checker.tier_verbatim_exempt()——刻意與
+# RECON_MODE_RE 分開：那一條買到的是「空預設清單」，這一條買到的只是
+# 「階梯表沒有你這一列，所以你自己造句」，兩者的代價差很多，不該共用一個判準。
+RECON_SELFDECL_RE = re.compile(r"偵察(?:抽樣|模式)")
+
 # 表頭那一行是固定句，逐字比對（SKILL.md〈landscape 輸出格式〉）
 LANDSCAPE_DISCLAIMER_LABEL = "這份報告不做什麼"
 LANDSCAPE_DISCLAIMER = (
@@ -178,9 +184,28 @@ NOVELTY_TOKEN_RE = re.compile(
     % "|".join(sorted(SURVIVOR_VERDICTS | KILL_VERDICTS))
 )
 
-# 〈狀態〉只有五個合法值；前四個必須在同一欄掛上檢索句型
-LAND_STATUS_VALUES = ("飽和", "活躍", "新興", "衰退", "涵蓋不足")
-LAND_STATUS_EVIDENCE_RE = re.compile(r"回傳\s*\d+\s*筆")
+# 〈狀態〉的合法值。**〔涵蓋不足〕以外每一個都要在同一欄掛上檢索句型**，
+# 〔判不出〕也要——那兩段數字就是「儀器分不出來」的證據本身，少了它，
+# 這個值會變成一個不必舉證的躲避處。
+LAND_STATUS_VALUES = ("飽和", "活躍", "新興", "衰退", "判不出", "涵蓋不足")
+LAND_STATUS_EXEMPT = "涵蓋不足"          # 唯一免掛檢索句型的值（它宣告的正是沒有數字可掛）
+LAND_STATUS_UNDECIDABLE = "判不出"
+
+# 檢索句型的**兩段子句**（SKILL.md〈證據標準〉）。以前這裡只找「回傳 X 筆」，
+# 而規格當時的句型是「回傳 X 筆，其中 <年份> 之後 Y 筆」——那個「其中」宣告
+# Y 是 X 的子集，而它不是：X 是索引對這組關鍵字的寬鬆計數，Y 數在相關性排序後
+# 真的回給你的那一頁裡，兩者之間沒有子集關係。句型拆成兩段之後，這裡也跟著拆：
+# 第一段有兩種形狀（工具回不回報總數），第二段一個字都不變，而第二段的「其中」
+# 是真的——N 數在 M 那一頁裡，所以 **N ≤ M 是可查的算術**。
+LAND_EV_TOTAL_RE = re.compile(r"寬鬆關鍵字總數\s*(\d+)\s*筆")
+LAND_EV_NOTOTAL_RE = re.compile(r"未回傳總數")
+LAND_EV_READ_RE = re.compile(r"本次實際讀取回傳的前\s*(\d+)\s*筆")
+# 「其中 <年份> 之後 <N> 筆」允許重複出現（同時報兩個切分年，都對同一個 M）
+LAND_EV_AFTER_RE = re.compile(r"其中\s*((?:19|20)\d{2})\s*年?之後\s*(\d+)\s*筆")
+
+# 〔判不出〕第二項條件的門檻：那一頁「幾乎全部」落在切分年之後（實務上八成以上）。
+# 方向很重要——幾乎全部落在切分年**之前**是〔飽和〕〔衰退〕的證據，不是判不出。
+LAND_UNDECIDABLE_RATIO = 0.8
 
 # 第二節的預設編號 F1-a，與第六節〈來源預設〉欄對帳用
 LAND_ASSUM_ID_RE = re.compile(r"(?<![A-Za-z0-9])[Ff](\d{1,2})-([A-Za-z])(?![A-Za-z0-9])")
@@ -217,6 +242,60 @@ LAND_WALL_COLUMNS = {
     "breaking": ("拆的可能性",),
     "statement": ("這條預設",),
 }
+
+
+# --------------------------------------------------------------------------
+# 降級階梯：〈文獻工具〉那一行的合法值（兩種報告共用這一段，各讀自己那一欄）
+#
+# references/elimination-engine.md〈四、降級階梯〉是這八個字串的唯一出處，
+# 而那張表現在**兩個模式各一欄**。以前只有一欄，它的階 0 寫的是
+# 「存在性、撤稿、滾雪球均已機器查核」——那三件事是 hunt 的淘汰配備，
+# landscape 在定義上不跑（SKILL.md〈證據標準〉的〈不跑〉那一條），於是每一份
+# 地形報告的表頭都在逐字宣告三件它被禁止做的檢查，再由內文另寫一段去追認。
+# 分欄之後兩邊都逐字照抄、兩邊都是實話，而這裡的契約也跟著變嚴：
+# 合法值從「非佔位符」變成「**該欄**那四個字串之一」，**跨欄照抄是一筆違規**。
+#
+# 階 2 是唯一有變數的一格：`<實際用的工具名>` 由報告自己填，其後的尾巴逐字固定。
+# 這也是階與階之間必須看得出差別的理由——階 0 那一格點名 `lit_api.py` 並寫
+# 「僅用 search／brief／pick」，階 1／2 寫「無 brief／pick」，階 2 還要填工具名：
+# **一份階 2 的報告拿不出階 0 那一格的形狀**，階 2 就讀不成階 0。
+#
+# 這八個字串是寫死的，但它們不是本檔的私有事實：doc_scan.py 會逐字回查它們
+# 在 references/elimination-engine.md 裡真的存在、而且落在正確那一欄。
+# 規格改字而這裡沒跟上，是一筆紅燈，不是一個安靜的分歧。
+# --------------------------------------------------------------------------
+
+TIER_FIXED = {
+    "gap": {
+        0: "lit-review lit_api.py（存在性、撤稿、滾雪球均已機器查核）",
+        1: "僅程序沿用 lit-review，未執行機器查核；存在性與撤稿未經驗證",
+        3: "本次無法執行淘汰步驟",
+    },
+    "landscape": {
+        0: "lit-review lit_api.py（本模式僅用 search／brief／pick，未執行機器查核）",
+        1: "僅程序沿用 lit-review，未執行機器查核；本模式無 brief／pick，"
+           "筆數來自實際使用的檢索工具",
+        3: "本次無檢索能力，家族與錨定文獻均無工具回傳可依據",
+    },
+}
+# 階 2 那一格：前綴是變數（真的用過的工具名），尾巴逐字固定
+TIER2_TAIL = {
+    "gap": "；未做撤稿查核，存在性僅單源",
+    "landscape": "；本模式無 brief／pick，錨定文獻可能無識別碼",
+}
+TIER_MODE_LABEL = {"gap": "hunt 缺口獵捕", "landscape": "landscape 領域地形"}
+
+
+def tier_of(mode, value):
+    """〈文獻工具〉的值落在該欄的哪一階；不是那一欄的任何一格就回 None。"""
+    v = strip_md(value or "").strip()
+    for tier, s in TIER_FIXED[mode].items():
+        if v == strip_md(s):
+            return tier
+    tail = strip_md(TIER2_TAIL[mode])
+    if v.endswith(tail) and not is_placeholder(v[:-len(tail)]):
+        return 2
+    return None
 
 
 # --------------------------------------------------------------------------
@@ -1627,7 +1706,9 @@ CHECK_DESCRIPTIONS = {
                "標題認不出來的區段一律改以內容定位、底下的規則照常執行，"
                "但標題本身是一條違規——不是停止檢查的理由",
     "STRUCT-01": "報告必須有〈存活候選〉〈待確認〉〈已淘汰〉〈檢索紀錄〉四個區段",
-    "STRUCT-02": "表頭必須宣告文獻工具階層（第 0/1/2/3 階）",
+    "STRUCT-02": "表頭必須宣告文獻工具階層（第 0/1/2/3 階），而且逐字等於降級階梯表中"
+                 "**本報告型別那一欄**的那一格（階 2 只有 `<實際用的工具名>` 是變數）；"
+                 "跨欄照抄（地形報告寫 hunt 欄、缺口報告寫 landscape 欄）是一筆違規",
     "COUNT-01": "區塊結算的〈存活〉必須等於第二節實際寫出來的候選區塊數"
                 "（數字來自區塊、列數來自散文，這是一次真的交叉比對）",
     "RECON-01": "區塊結算的〈待確認〉〈已淘汰〉必須等於第三、四節的實際列數，"
@@ -1658,7 +1739,9 @@ CHECK_DESCRIPTIONS = {
     "LHEAD-01": "地形報告的表頭要宣告〈模式〉是領域地形，並逐字帶〈這份報告不做什麼〉那一行",
     "LVOCAB-01": "地形報告不得出現新穎性判定詞彙（ADJACENT／OPEN／INCREMENTAL／DONE／CROWDED）",
     "LCOST-01": "每個家族都要同時寫出〈買到什麼〉與〈付出什麼〉，查不到就寫「還沒查到」，不得留白或佔位符",
-    "LSTAT-01": "〈狀態〉必須是五個合法值之一；不是〔涵蓋不足〕就要在同一欄掛上檢索句型",
+    "LSTAT-01": "〈狀態〉必須是六個合法值之一（飽和／活躍／新興／衰退／判不出／涵蓋不足）；"
+                "除〔涵蓋不足〕外都要在同一欄掛上**兩段子句**的檢索句型，"
+                "而第二段的 N ≤ M；〔判不出〕另外要滿足它自己的方向與多數條件",
     "LWALL-01": "第六節的牆與第二節的〈默默預設〉要雙向對得起來，〈家族數〉等於去重後的家族數",
 }
 
@@ -1742,16 +1825,49 @@ class BaseChecker(object):
                    SECTION_TITLE_KEYWORD.get(s["kind"], s["kind"])))
 
     # ---- 表頭的文獻工具階層（兩種報告都要宣告）-----------------------------
+    def tier_verbatim_exempt(self):
+        """這一份報告可不可以不逐字照抄階梯表。預設一份都不行。"""
+        return False
+
     def check_tool_tier(self):
         header_text = "\n".join(t for _, t in self.rep.header_lines)
         if not re.search(r"文獻工具", header_text):
             self.add("STRUCT-02", 1, "", "表頭缺少「**文獻工具**：…」宣告，無法判斷這份報告的查核階層")
             return
+        mode = self.rep.mode if self.rep.mode in TIER_FIXED else "gap"
+        other = "landscape" if mode == "gap" else "gap"
         for lineno, t in self.rep.header_lines:
             if "文獻工具" in t:
                 val = t.split("：", 1)[-1] if "：" in t else t.split(":", 1)[-1]
+                # 唯一的判定條件是「逐字等於這一欄的某一格」。底下三個分支只決定
+                # **訊息**，不決定要不要開火——佔位符與跨欄照抄都是同一件事的兩種形狀
+                # （都不是那一欄的四個字串之一），分開寫是為了把作者送到對的地方。
+                if tier_of(mode, val) is not None:
+                    break
+                cross = tier_of(other, val)
                 if is_placeholder(val):
-                    self.add("STRUCT-02", lineno, t, "「文獻工具」宣告是空的或佔位符")
+                    self.add("STRUCT-02", lineno, t,
+                             "「文獻工具」宣告是空的或佔位符。這一行的值必須逐字等於"
+                             "降級階梯表「%s」那一欄、本次實際落到那一階的那一格"
+                             % TIER_MODE_LABEL[mode])
+                elif cross is not None:
+                    self.add(
+                        "STRUCT-02", lineno, t,
+                        "〈文獻工具〉照抄的是降級階梯表**另一欄**（%s）的階 %s 字串。"
+                        "這一份是%s，合法值只有那一欄的四個字串——"
+                        "同一個字串在一邊是實話、在另一邊是假話，"
+                        "這正是那張表要分兩欄的理由。應為：%s"
+                        % (TIER_MODE_LABEL[other], cross, TIER_MODE_LABEL[mode],
+                           TIER_FIXED[mode].get(cross)
+                           or ("<實際用的工具名>" + TIER2_TAIL[mode])))
+                elif not self.tier_verbatim_exempt():
+                    self.add(
+                        "STRUCT-02", lineno, t,
+                        "〈文獻工具〉不是降級階梯表「%s」那一欄的四個字串之一"
+                        "（references/elimination-engine.md〈四、降級階梯〉是這一行的唯一出處，"
+                        "本次落到哪一階就逐字照抄那一格，不要另外造句）。"
+                        "階 2 是唯一要自己填的一格，形狀是「<實際用的工具名>%s」"
+                        % (TIER_MODE_LABEL[mode], TIER2_TAIL[mode]))
                 break
 
     # ---- 措辭（兩種報告都適用）--------------------------------------------
@@ -1818,6 +1934,26 @@ class Checker(BaseChecker):
             return False
         st = self.rep.settlement
         return bool(st) and self.rep.settlement_ok and st[1] == 0 and st[3] == 0
+
+    def tier_verbatim_exempt(self):
+        """表頭自己宣告是偵察模式的報告：不逐字比對階梯表。
+        **跨欄照抄照樣是違規**，豁免只到「這一欄的四個字串之一」為止。
+
+        理由是階梯表沒有偵察模式這一列，而 hunt 的階 0 那一格寫的是
+        「存在性、撤稿、滾雪球均已機器查核」——偵察模式依 SKILL.md〈偵察模式〉
+        本來就不做撤稿與品質檢查，它跑得動 lit_api 卻不是階 1／2／3。
+        逼它照抄階 0，等於在這個角落重新製造分兩欄要消滅的那件事：
+        規格要求一份報告寫下自己知道是假的東西。所以這裡讓它自己造句，
+        代價寫清楚——**這一階的字串沒有被逐字比對過**。缺的是階梯表裡的一列
+        （那是規格的事，不是查核器的），不是一條規則。
+
+        判準刻意比 `_recon_declared()` 寬：只要表頭任何一行宣告了偵察模式
+        （〈模式〉或〈降級聲明〉都算）。窄成「只認〈模式〉那一行」的話，
+        recon_undeclared_empty.md 改掉〈模式〉之後會同時亮 BLOCK-01 與 STRUCT-02，
+        而它只壞了一個維度——一次編輯不該產生兩句話，其中一句還指著沒有壞的那一行。
+        """
+        return any(RECON_SELFDECL_RE.search(strip_md(t))
+                   for _n, t in self.rep.header_lines)
 
     def _check_assumptions_present(self):
         """空的 `assumptions` 是一個**明講出來的宣稱**，不是缺席——所以它查得動。
@@ -2697,32 +2833,100 @@ class LandscapeChecker(BaseChecker):
                          % "〉〈".join(blank))
 
     # ---- 狀態：飽和／活躍是檢索結果，不是領域事實 -------------------------
-    def _status_problem(self, value):
+    def _evidence(self, value):
+        """讀出檢索句型的兩段子句：(M, [(切分年, N), …])。讀不成句型就回 None。
+
+        第一段（索引的寬鬆關鍵字總數，或「未回傳總數」）只問形狀，因為 X 與 M
+        分屬兩個母體、彼此之間沒有算術；第二段的 M 與 N **在同一頁裡**，所以
+        它們之間有一條可查的算術（N ≤ M），而那正是「其中」在這裡是真的的理由。
+        """
+        v = strip_md(value or "")
+        first = bool(LAND_EV_TOTAL_RE.search(v) or LAND_EV_NOTOTAL_RE.search(v))
+        read = LAND_EV_READ_RE.search(v)
+        afters = [(int(y), int(n)) for y, n in LAND_EV_AFTER_RE.findall(v)]
+        if not first or read is None or not afters:
+            return None
+        return int(read.group(1)), afters
+
+    def _undecidable_majority(self):
+        """這份報告是不是「多數家族讀到的那一頁都幾乎全部落在切分年之後」。
+
+        〔判不出〕的第三項條件。它把兩件事分開：一個成熟領域裡某一族的近年占比
+        特別高，那是〔活躍〕、資訊是真的；整份報告每一族都貼著上限，那是**這個
+        領域比視窗還年輕**——「近三年占比低」在構造上不可能出現，四個值退化成兩個。
+        沒有任何家族拿得出數字時回 None（那是別條臂的事，不在這裡判）。
+        """
+        scored = []
+        for fam in self.rep.families:
+            if "status" not in fam["fields"]:
+                continue
+            ev = self._evidence(fam["fields"]["status"][1])
+            if ev is None:
+                continue
+            read, afters = ev
+            top = max(n for _y, n in afters)
+            if read <= 0 or top > read:
+                continue          # 算術本身就壞了的那一列，不拿去左右別的家族
+            scored.append(top / float(read))
+        if not scored:
+            return None
+        return len([r for r in scored if r >= LAND_UNDECIDABLE_RATIO]) * 2 > len(scored)
+
+    def _status_problem(self, value, majority=None):
         v = strip_md(value or "")
         v = re.split(r"[｜|]", v)[0]
         v = v.strip("〔〕【】[]（）() 　").strip()
         if not v:
             return "〈狀態〉是空的"
         if v not in LAND_STATUS_VALUES:
-            return ("〈狀態〉值「%s」不在五個合法值內（%s）"
-                    % (v, "／".join(LAND_STATUS_VALUES)))
-        if v == "涵蓋不足":
+            return ("〈狀態〉值「%s」不在 %d 個合法值內（%s）"
+                    % (v, len(LAND_STATUS_VALUES), "／".join(LAND_STATUS_VALUES)))
+        if v == LAND_STATUS_EXEMPT:
             return None      # 誠實的退場：標了就走，不必附證據
-        if not LAND_STATUS_EVIDENCE_RE.search(strip_md(value)):
-            return ("〈狀態〉「%s」沒有掛檢索句型——同一欄要寫「`<查詢詞>` 在 <索引> 回傳 X 筆，"
-                    "其中 <年份> 之後 Y 筆」。判不出來就寫〔涵蓋不足〕，那是這個模式允許的答案" % v)
+        ev = self._evidence(value)
+        if ev is None:
+            return ("〈狀態〉「%s」沒有掛完整的兩段子句檢索句型——同一欄要寫"
+                    "「`<查詢詞>` 在 <索引> 的寬鬆關鍵字總數 <X> 筆（工具自報，未加年份條件）；"
+                    "本次實際讀取回傳的前 <M> 筆，其中 <年份> 之後 <N> 筆」"
+                    "（工具沒回報總數時第一段換成「未回傳總數（<原因>）」，第二段一個字不變）。"
+                    "兩段之間沒有「其中」，因為 X 與 M 不是同一個母體。"
+                    "湊不出數字就寫〔涵蓋不足〕，那是這個模式允許的答案" % v)
+        read, afters = ev
+        bad = [(y, n) for y, n in afters if n > read]
+        if bad:
+            return ("〈狀態〉「%s」的第二段子句算術不成立：讀到的是前 %d 筆，"
+                    "卻說其中 %d 之後有 %d 筆。N 數在 M 那一頁裡，所以 N ≤ M；"
+                    "會超過通常是把索引的寬鬆關鍵字總數（第一段的 X）當成了母體，"
+                    "而那正是這個句型拆成兩段要擋掉的事"
+                    % (v, read, bad[0][0], bad[0][1]))
         if not (BACKTICK_RE.search(value) or QUOTED_ANY_RE.search(value)):
             return ("〈狀態〉「%s」有筆數卻沒有逐字查詢詞——讀者要能把那個詞複製去重跑一次" % v)
+        if v == LAND_STATUS_UNDECIDABLE:
+            ratio = max(n for _y, n in afters) / float(read) if read > 0 else 0.0
+            if ratio < LAND_UNDECIDABLE_RATIO:
+                return ("〈狀態〉〔判不出〕的第二項條件不成立：這一頁只有 %d／%d "
+                        "（%.0f%%）落在切分年之後，不到八成。**方向很重要**——"
+                        "幾乎全部落在切分年之前是〔飽和〕〔衰退〕的證據，不是判不出。"
+                        "〔判不出〕說的是「切分年在這個領域沒有鑑別力」，"
+                        "而這一頁的切分年正在分得出東西"
+                        % (max(n for _y, n in afters), read,
+                           100.0 * ratio))
+            if majority is False:
+                return ("〈狀態〉〔判不出〕的第三項條件不成立：這份報告**多數家族並不是這樣**。"
+                        "一個成熟領域裡有一族的近年占比特別高，那是〔活躍〕、資訊是真的；"
+                        "〔判不出〕要的是整份報告每一族都貼著上限的那一種——"
+                        "那時候「近三年占比低」在構造上不可能出現，四個值才真的退化成兩個")
         return None
 
     def check_status(self):
+        majority = self._undecidable_majority()
         for fam in self.rep.families:
             if "status" not in fam["fields"]:
                 self.add("LSTAT-01", fam["line"], "### %s %s" % (fam_ref(fam), fam["name"]),
                          "家族 %s 缺〈狀態〉欄" % fam_ref(fam))
                 continue
             lineno, val = fam["fields"]["status"]
-            problem = self._status_problem(val)
+            problem = self._status_problem(val, majority)
             if problem:
                 self.add("LSTAT-01", lineno, self.rep.lines[lineno - 1],
                          "家族 %s 的%s" % (fam_ref(fam), problem))
@@ -2730,17 +2934,17 @@ class LandscapeChecker(BaseChecker):
             cell = row.get("status", "")
             if not strip_md(cell):
                 # 空白以前是跳過的，而〈買到什麼〉〈付出什麼〉那兩欄空白是會被 LCOST-01
-                # 抓的——同一張表的同一種缺陷不該有兩套待遇。空白也是「不在五個合法值內」。
+                # 抓的——同一張表的同一種缺陷不該有兩套待遇。空白也是「不在合法值內」。
                 self.add("LSTAT-01", row["_line"], self.rep.lines[row["_line"] - 1],
                          "一眼表這一列的〈狀態〉是空的（欄位空白，或表頭沒有這一欄）——"
-                         "五個合法值是 %s，判不出來就寫〔涵蓋不足〕"
-                         % "／".join(LAND_STATUS_VALUES))
+                         "%d 個合法值是 %s，證據撐不起任何一個就寫〔涵蓋不足〕"
+                         % (len(LAND_STATUS_VALUES), "／".join(LAND_STATUS_VALUES)))
                 continue
             gv = strip_md(cell).strip("〔〕【】[]（）() 　").strip()
             if gv not in LAND_STATUS_VALUES:
                 self.add("LSTAT-01", row["_line"], self.rep.lines[row["_line"] - 1],
-                         "一眼表的〈狀態〉「%s」不在五個合法值內（%s）"
-                         % (gv, "／".join(LAND_STATUS_VALUES)))
+                         "一眼表的〈狀態〉「%s」不在 %d 個合法值內（%s）"
+                         % (gv, len(LAND_STATUS_VALUES), "／".join(LAND_STATUS_VALUES)))
 
     # ---- 牆與預設的雙向對帳（這一節是要交棒給獵捕的，對不起來就交不出去）----
     def check_walls(self):

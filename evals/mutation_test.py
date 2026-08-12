@@ -223,9 +223,31 @@ MUTATIONS = [
     ),
     (
         "STRUCT-02", "no_tool_tier.md",
-        "不再檢查〈文獻工具〉的值是不是佔位符",
-        '                if is_placeholder(val):\n                    self.add("STRUCT-02"',
-        '                if False:\n                    self.add("STRUCT-02"',
+        "〈文獻工具〉不再逐字比對降級階梯表（＝任何字串都算合法，連佔位符也讀得過）。"
+        "這一條與下一條削弱的是同一個條件，因為它本來就只有一個："
+        "佔位符與跨欄照抄是同一件事的兩種形狀，底下那三個分支只決定訊息、不決定開不開火",
+        "    for tier, s in TIER_FIXED[mode].items():\n"
+        "        if v == strip_md(s):\n"
+        "            return tier",
+        "    for tier, s in TIER_FIXED[mode].items():\n"
+        "        if True:\n"
+        "            return tier",
+    ),
+    (
+        "STRUCT-02", "landscape_hunt_tier_string.md",
+        "把兩欄合回一欄（＝D1 之前的那一版規格：查完自己那一欄再查另一欄）。"
+        "跨欄照抄因此重新是安靜的——地形報告照抄 hunt 的階 0 那一格，"
+        "等於在表頭逐字宣告三件這個模式被禁止做的檢查，而它不是佔位符，"
+        "舊契約（非佔位符即可）從來看不到它",
+        "    if v.endswith(tail) and not is_placeholder(v[:-len(tail)]):\n"
+        "        return 2\n"
+        "    return None",
+        "    if v.endswith(tail) and not is_placeholder(v[:-len(tail)]):\n"
+        "        return 2\n"
+        '    for tier, s in TIER_FIXED["landscape" if mode == "gap" else "gap"].items():\n'
+        "        if v == strip_md(s):\n"
+        "            return tier\n"
+        "    return None",
     ),
     (
         "COUNT-01", "count_mismatch.md",
@@ -392,9 +414,37 @@ MUTATIONS = [
     ),
     (
         "LSTAT-01", "landscape_status_asserted.md",
-        "〈狀態〉查出問題也不回報（詞彙、檢索句型、逐字查詢詞三個臂一起關掉）",
-        "            problem = self._status_problem(val)\n            if problem:",
-        "            problem = self._status_problem(val)\n            if False:",
+        "〈狀態〉查出問題也不回報（詞彙、檢索句型、算術、逐字查詢詞、"
+        "〔判不出〕的兩項條件——所有臂一起關掉）",
+        "            problem = self._status_problem(val, majority)\n            if problem:",
+        "            problem = self._status_problem(val, majority)\n            if False:",
+    ),
+    (
+        "LSTAT-01", "landscape_status_glued.md",
+        "第二段子句可以由第一段的總數頂替（＝把兩段用「其中」黏回一段的舊句型重新過關，"
+        "而 X 是索引的寬鬆關鍵字計數、M 是實際回傳的那一頁，兩者沒有子集關係）",
+        "        read = LAND_EV_READ_RE.search(v)",
+        "        read = LAND_EV_READ_RE.search(v) or LAND_EV_TOTAL_RE.search(v)",
+    ),
+    (
+        "LSTAT-01", "landscape_status_n_exceeds_m.md",
+        "不再驗第二段子句的算術 N ≤ M（＝把索引總數當成那一頁的母體，重新看不出來）",
+        "        bad = [(y, n) for y, n in afters if n > read]",
+        "        bad = []",
+    ),
+    (
+        "LSTAT-01", "landscape_undecidable_wrong_direction.md",
+        "〔判不出〕不再看方向（＝一頁幾乎全是切分年**之前**的家族也能標判不出，"
+        "而那正是〔飽和〕〔衰退〕的證據）",
+        "            if ratio < LAND_UNDECIDABLE_RATIO:",
+        "            if False:",
+    ),
+    (
+        "LSTAT-01", "landscape_undecidable_alone.md",
+        "〔判不出〕不再看「這份報告多數家族都是這樣」（＝成熟領域裡某一族特別熱，"
+        "本來是〔活躍〕、資訊是真的，現在可以改標判不出而不必說明）",
+        "            if majority is False:",
+        "            if False:",
     ),
     (
         "LWALL-01", "landscape_orphan_assumption.md",
@@ -428,13 +478,15 @@ def main():
     with io.open(CHECKER, encoding="utf-8") as fh:
         source = fh.read()
 
-    # 每個突變體都要對**四份**合規基準重跑：缺口報告、地形報告、承接地形的缺口報告，
-    # 以及偵察模式報告。少了地形那一份，一個把地形規則整條關掉的突變會看起來人畜無害；
-    # 少了承接那一份，一個只在「有承接標籤時」才踩壞的突變同樣不會被看見；
+    # 每個突變體都要對**五份**合規基準重跑：缺口報告、兩份地形報告（成熟領域與比視窗
+    # 年輕的領域）、承接地形的缺口報告，以及偵察模式報告。少了地形那一份，一個把地形規則
+    # 整條關掉的突變會看起來人畜無害；少了年輕領域那一份，一個把〈狀態〉的檢索句型放寬到
+    # 「總數也算」的突變會把一份**合規**的判不出報告判成違規，而它在成熟領域那一份上不會
+    # 顯形；少了承接那一份，一個只在「有承接標籤時」才踩壞的突變同樣不會被看見；
     # 少了偵察那一份，一個把「空預設清單」的豁免改壞的突變會安靜地把一份合規報告判成違規。
     clean = [os.path.join(FIXTURES, n)
-             for n in ("good_report.md", "good_landscape.md", "good_inherited_report.md",
-                       "good_recon_report.md")]
+             for n in ("good_report.md", "good_landscape.md", "good_landscape_young.md",
+                       "good_inherited_report.md", "good_recon_report.md")]
     tmp = tempfile.mkdtemp(prefix="gaphunter-mut-")
     failures = []
     collateral_notes = []

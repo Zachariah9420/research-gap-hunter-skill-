@@ -30,6 +30,13 @@ BASE = os.path.join(FIXTURES, "good_report.md")
 # 第二個基準：領域地形報告。它是**另一種文件形狀**，不是缺口報告的變體，
 # 所以它的衍生樣本從它自己長出來，不從 good_report.md 長。
 LAND_BASE = os.path.join(FIXTURES, "good_landscape.md")
+# 第五個基準：一個**比年份視窗還年輕**的領域的地形報告。它與 good_landscape.md 的
+# 差別不是壞掉一處，是整份報告落在〈狀態〉那一欄的另一種地形：六個家族有五個讀到的
+# 那一頁幾乎全部落在切分年之後，於是〔判不出〕的三項條件同時成立。
+# 它得自己當基準，因為那三項條件裡有一項是**報告層級**的（多數家族都是這樣）——
+# 從 good_landscape.md 改出來的話，任何一個家族改標〔判不出〕都會同時踩到兩個臂，
+# 而兩個臂一起亮的樣本證明不了是哪一個亮的。
+LAND_YOUNG_BASE = os.path.join(FIXTURES, "good_landscape_young.md")
 # 第三個基準：承接地形報告的缺口報告。它是**兩個模式接起來的那一份**——
 # 表頭帶〈地形來源〉、第一節同時有本輪量化的預設、承接未補框的預設、
 # 與承接後補了取樣框的預設。這三種在同一份裡並存才是真實的形狀，
@@ -458,10 +465,66 @@ LAND_FIXTURES_SPEC = [
     (
         "landscape_status_asserted.md",
         "相對於 good_landscape.md，本檔刻意壞掉一處：F5 的〈狀態〉把趨勢寫成領域事實，"
-        "同一欄沒有掛上「回傳 X 筆」的檢索句型。",
+        "同一欄沒有掛上兩段子句的檢索句型。",
         [("- **狀態**：活躍｜`gps trajectory green space exposure dwell time` 在 Semantic Scholar "
-          "回傳 143 筆，其中 2023 之後 71 筆",
+          "的寬鬆關鍵字總數 143 筆（工具自報，未加年份條件）；本次實際讀取回傳的前 20 筆，"
+          "其中 2023 之後 12 筆",
           "- **狀態**：活躍（近三年明顯在加速，投稿量逐年上升）")],
+    ),
+    (
+        "landscape_status_n_exceeds_m.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：F4 的〈狀態〉說讀到的是前 20 筆、"
+        "其中 2023 之後有 24 筆——N 數在 M 那一頁裡，所以 N ≤ M，24 > 20 是算不出來的。"
+        "這一份釘的是句型拆成兩段之後才存在的那條算術：以前的句型是「回傳 X 筆，其中 "
+        "<年份> 之後 Y 筆」，那個「其中」宣稱 Y 是 X 的子集，而 X 是索引的寬鬆關鍵字計數、"
+        "Y 數在實際回傳的那一頁裡——兩個母體之間沒有任何算術可查，所以這一類錯誤在舊句型"
+        "底下是**看不見**的。它最常見的來源正是把第一段的 X 誤當成第二段的母體。",
+        [("- **狀態**：飽和｜`self-reported park visitation questionnaire validity` 在 "
+          "Semantic Scholar 的寬鬆關鍵字總數 221 筆（工具自報，未加年份條件）；"
+          "本次實際讀取回傳的前 20 筆，其中 2023 之後 2 筆",
+          "- **狀態**：飽和｜`self-reported park visitation questionnaire validity` 在 "
+          "Semantic Scholar 的寬鬆關鍵字總數 221 筆（工具自報，未加年份條件）；"
+          "本次實際讀取回傳的前 20 筆，其中 2023 之後 24 筆")],
+    ),
+    (
+        "landscape_status_glued.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：F4 的〈狀態〉把兩段子句用「，其中」"
+        "黏回一段——也就是規格改掉的那個舊句型本身。它宣告 2023 之後那 24 筆是索引那 221 筆"
+        "的子集，而 221 是索引對這組關鍵字的寬鬆計數、24 數在實際回傳的那一頁裡，"
+        "兩者沒有子集關係。這一份釘的是「第二段子句不得由第一段的總數頂替」："
+        "少了它，只要把 X 寫進來、把 M 那一段刪掉，一句假話就重新讀得過。",
+        [("- **狀態**：飽和｜`self-reported park visitation questionnaire validity` 在 "
+          "Semantic Scholar 的寬鬆關鍵字總數 221 筆（工具自報，未加年份條件）；"
+          "本次實際讀取回傳的前 20 筆，其中 2023 之後 2 筆",
+          "- **狀態**：飽和｜`self-reported park visitation questionnaire validity` 在 "
+          "Semantic Scholar 的寬鬆關鍵字總數 221 筆（工具自報，未加年份條件），"
+          "其中 2023 之後 24 筆")],
+    ),
+    (
+        "landscape_undecidable_alone.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：F6 改標〔判不出〕，而這份報告的"
+        "**多數家族並不是這樣**（六個有數字的家族裡只有 F6 的那一頁近年占比到八成）。"
+        "〔判不出〕的第三項條件就是在分這件事：一個成熟領域裡某一族特別熱，那是〔活躍〕、"
+        "資訊是真的；整份報告每一族都貼著上限，才是這個領域比視窗還年輕、四個值退化成兩個。"
+        "少了第三項，〔判不出〕會變成一個「這一族我不想判」的出口，而它本來要說的是"
+        "「這一欄在這個領域鑑別力有限」。",
+        [("- **狀態**：新興｜`pedestrian counter park footfall continuous` 在 Semantic Scholar "
+          "的寬鬆關鍵字總數 38 筆（工具自報，未加年份條件）；本次實際讀取回傳的前 20 筆，"
+          "其中 2023 之後 18 筆",
+          "- **狀態**：〔判不出〕｜`pedestrian counter park footfall continuous` 在 Semantic Scholar "
+          "的寬鬆關鍵字總數 38 筆（工具自報，未加年份條件）；本次實際讀取回傳的前 20 筆，"
+          "其中 2023 之後 18 筆")],
+    ),
+    (
+        "landscape_hunt_tier_string.md",
+        "相對於 good_landscape.md，本檔刻意壞掉一處：表頭的〈文獻工具〉照抄了降級階梯表"
+        "**hunt 那一欄**的階 0 字串，而那一格宣告「存在性、撤稿、滾雪球均已機器查核」"
+        "——那三件事是淘汰配備，地形模式在定義上不跑。這一份釘的是那張表為什麼要分兩欄："
+        "同一個字串在一邊是實話、在另一邊是假話，而規格又要求逐字照抄，於是每一份地形報告"
+        "都在表頭宣告三件它被禁止做的檢查。它不是佔位符（no_tool_tier.md 釘的是那一種），"
+        "所以舊契約「非佔位符即可」看不到它。",
+        [("**文獻工具**：lit-review lit_api.py（本模式僅用 search／brief／pick，未執行機器查核）",
+          "**文獻工具**：lit-review lit_api.py（存在性、撤稿、滾雪球均已機器查核）")],
     ),
     (
         "landscape_orphan_assumption.md",
@@ -481,7 +544,7 @@ LAND_FIXTURES_SPEC = [
         "landscape_no_tier.md",
         "相對於 good_landscape.md，本檔刻意壞掉一處：表頭的工具階層宣告是佔位符。"
         "這條規則兩種模式共用，這一份釘住它在地形報告裡也有效。",
-        [("**文獻工具**：lit-review lit_api.py（存在性、撤稿、滾雪球均已機器查核）",
+        [("**文獻工具**：lit-review lit_api.py（本模式僅用 search／brief／pick，未執行機器查核）",
           "**文獻工具**：待補")],
     ),
     (
@@ -560,6 +623,29 @@ LAND_FIXTURES_SPEC = [
 ]
 
 
+# 比視窗年輕的那一種地形報告的衍生樣本。〔判不出〕有三項條件，第一項由
+# 〔涵蓋不足〕那一側顧著，第二、三項各需要一份樣本，而它們**只能從不同的基準長出來**：
+# 第三項（多數家族都是這樣）在這份基準上是成立的，所以在這裡只動方向那一項；
+# 第二項在 good_landscape.md 上本來就成立不了，所以那邊只動第三項。
+LAND_YOUNG_FIXTURES_SPEC = [
+    (
+        "landscape_undecidable_wrong_direction.md",
+        "相對於 good_landscape_young.md，本檔刻意壞掉一處：F6 維持〔判不出〕，"
+        "但它讀到的那一頁改成只有 6／20 落在切分年之後。**方向很重要**——"
+        "幾乎全部落在切分年之前是〔飽和〕〔衰退〕的證據，不是判不出；"
+        "〔判不出〕說的是「切分年在這個領域沒有鑑別力」，而這一頁的切分年正在分得出東西。"
+        "少了方向這一項，只寫「一頁八成以上落在同一側」會把一份**幾乎全是舊的**的頁面"
+        "從〔飽和〕誤判成〔判不出〕，那正是這個值最該擋住的反向誤用。",
+        [("- **狀態**：〔判不出〕｜`propagation model low earth orbit direct to device coexistence` "
+          "在 Semantic Scholar 的寬鬆關鍵字總數 45 筆（工具自報，未加年份條件）；"
+          "本次實際讀取回傳的前 20 筆，其中 2023 之後 16 筆",
+          "- **狀態**：〔判不出〕｜`propagation model low earth orbit direct to device coexistence` "
+          "在 Semantic Scholar 的寬鬆關鍵字總數 45 筆（工具自報，未加年份條件）；"
+          "本次實際讀取回傳的前 20 筆，其中 2023 之後 6 筆")],
+    ),
+]
+
+
 # 承接地形報告的缺口報告的衍生樣本。這三個釘的是兩個模式之間那道橋：
 # 承接來的預設在第一節裡**看得見**（不是不存在），未補框者不得長出 G3 候選，
 # 補了框者與本輪量化的預設同標準。
@@ -621,6 +707,8 @@ def derived_bases():
     out = dict((name, os.path.basename(BASE)) for name, _n, _e in FIXTURES_SPEC)
     out["narrative_wrapper.md"] = os.path.basename(BASE)
     out.update((name, os.path.basename(LAND_BASE)) for name, _n, _e in LAND_FIXTURES_SPEC)
+    out.update((name, os.path.basename(LAND_YOUNG_BASE))
+               for name, _n, _e in LAND_YOUNG_FIXTURES_SPEC)
     out.update((name, os.path.basename(INHERIT_BASE)) for name, _n, _e in INHERIT_FIXTURES_SPEC)
     out.update((name, os.path.basename(RECON_BASE)) for name, _n, _e in RECON_FIXTURES_SPEC)
     return out
@@ -723,6 +811,9 @@ def main():
     outputs.append(("narrative_wrapper.md", build_narrative(base)))
     land_base = load_base(LAND_BASE)
     outputs += [(name, build(land_base, note, edits)) for name, note, edits in LAND_FIXTURES_SPEC]
+    land_young_base = load_base(LAND_YOUNG_BASE)
+    outputs += [(name, build(land_young_base, note, edits))
+                for name, note, edits in LAND_YOUNG_FIXTURES_SPEC]
     inherit_base = load_base(INHERIT_BASE)
     outputs += [(name, build(inherit_base, note, edits))
                 for name, note, edits in INHERIT_FIXTURES_SPEC]
@@ -753,13 +844,15 @@ def main():
         print("✅ %d 個衍生樣本與生成器一致。" % len(outputs))
         return 0
 
-    print("已由 %s／%s／%s／%s 生成 %d 個衍生樣本："
+    print("已由 %s／%s／%s／%s／%s 生成 %d 個衍生樣本："
           % (os.path.basename(BASE), os.path.basename(LAND_BASE),
-             os.path.basename(INHERIT_BASE), os.path.basename(RECON_BASE), len(outputs)))
+             os.path.basename(LAND_YOUNG_BASE), os.path.basename(INHERIT_BASE),
+             os.path.basename(RECON_BASE), len(outputs)))
     for name, _t in outputs:
         print("  %s" % name)
     print("（good_report.md、good_nosearch_report.md、chinese_index_na.md、good_landscape.md、"
-          "good_inherited_report.md、good_recon_report.md 是手寫基準，未被覆寫）")
+          "good_landscape_young.md、good_inherited_report.md、good_recon_report.md "
+          "是手寫基準，未被覆寫）")
     return 0
 
 

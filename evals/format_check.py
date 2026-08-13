@@ -511,8 +511,12 @@ def extract_queries(s):
         out.append(m.group(1).strip())
     for m in QUOTED_ANY_RE.finditer(s):
         out.append(next(g for g in m.groups() if g).strip())
-    for m in LATIN_PHRASE_RE.finditer(strip_md(s)):
-        out.append(m.group(0).strip())
+    # 這裡以前還有一條 LATIN_PHRASE_RE:任意兩個連續的拉丁單字都算「具體查詢詞」。
+    # 於是「在 Semantic Scholar 與 Crossref 上都查過三輪了，沒有找到做法相同的研究」
+    # 這句話裡的「Semantic Scholar」——資料庫的名字本身——就滿足了規則。EVID-03 的
+    # 目的是「查詢詞要逐字寫出，讓使用者能複製去重跑」,而句子裡出現的專有名詞複製
+    # 出來不能重跑任何東西。SKILL.md 的範本本來就要求查詢詞加反引號或引號,所以
+    # 只認被明確界定過的片段:界定這個動作本身就是作者在說「這是我跑的那一串」。
     # 過濾掉佔位符與純數字
     return [q for q in out if not is_placeholder(q) and not re.fullmatch(r"[\d\s.,]+", q)]
 
@@ -520,9 +524,13 @@ def extract_queries(s):
 def count_papers(cell):
     """粗估一個「關鍵文獻」欄位裡列了幾篇。"""
     text = strip_md(cell)
+    # 以前這裡用逗號切:一篇三個作者的論文「Author H, Author I, and Author J (2021)」
+    # 被切成三份,於是 CROWDED 的「至少三篇」門檻用一篇就過了;標題含逗號的單篇
+    # 論文同理。改數識別碼與年份——那兩樣東西是每篇一個,而 ID-01 已經要求每一篇
+    # 被指名的文獻都要帶識別碼,所以數識別碼不會低估合規的報告。
+    ids = len(IDENTIFIER_RE.findall(text))
     years = len(YEAR_RE.findall(text))
-    parts = [p for p in re.split(r"[；;、,，]|\s{2,}", text) if p.strip()]
-    return max(years, len(parts) if len(parts) > 1 else 0, 1 if text else 0)
+    return max(ids, years, 1 if text.strip() else 0)
 
 
 def first_cid(s):
@@ -1225,8 +1233,20 @@ def scan_heads(lines):
     回傳 dict(line0, level, title, spaced, end)。end 一律到下一個標題為止——
     欄位行不會跨過一個標題歸給前一個區塊，那會讓兩個家族的欄位混在一起。
     """
+    # 圍欄內的 `## …` 是程式碼或範例文字,不是標題。以前這裡看不見圍欄,於是在
+    # 一眼表上方插一段 ```…``` 裡面寫個 `## `,就會憑空生出一個區塊邊界,把下面
+    # 整張表切到別的區段去——表格連同它所有的違規一起從檢查範圍裡消失,而且不會
+    # 有任何 PARSE-01:那些回報器只報「讀不出來的結構」,一張被歸到別人名下的
+    # 完整表格,在它們眼中是讀得出來的。地形報告在這裡尤其脆弱,因為一眼表沒有
+    # 任何計數規則會發現它不見了。
+    fenced = set()
+    for b in _find_fences_for_scan(lines):
+        fenced.update(range(b["start"], b.get("end", b["start"]) + 1))
+
     heads = []
     for i, ln in enumerate(lines):
+        if i in fenced:
+            continue
         m = HEADISH_RE.match(ln)
         if not m:
             continue
@@ -1620,8 +1640,18 @@ def parse_report(text):
     if rep.raw_blocks:
         rep.block_line = rep.raw_blocks[0]["start"] + 1
 
-    for i, ln in enumerate(lines):
-        if NO_SEARCH_RE.search(ln):
+    # 「本次未執行任何檢索」是一個**宣告**,不是一個字串。以前這裡拿 NO_SEARCH_RE
+    # 掃整份 `lines`(還沒去掉 HTML 註解與區塊內容的原始文字),任何一句正文只要
+    # 帶到「無法執行淘汰步驟」這幾個字——例如「如果指導教授不同意投入完整流程,
+    # 下一輪仍然無法執行淘汰步驟」——就會把整份報告切換成降級模式,而降級模式底下
+    # 「沒有檢索紀錄」是合規的。一句敘述關掉一整條規則,正是本檔花了四輪從區段
+    # 名稱調度上根除的東西,只是換到了句子層級。
+    # 現在只認表頭欄位裡的宣告:降級是作者在表頭聲明的狀態,不是散文裡的一個詞。
+    for i, ln in enumerate(rep.scan_lines):
+        s = strip_md(strip_quote(ln)).strip()
+        if not s.startswith(("|", "-", "*", "**")) and "：" not in s and ":" not in s:
+            continue
+        if NO_SEARCH_RE.search(s):
             rep.no_search_declared = True
             break
 

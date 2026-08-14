@@ -10,9 +10,14 @@
 
 ```powershell
 $py = @('python','py','python3') | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Select-Object -First 1
+# 以 plugin 安裝時，lit-review 不在 skills\ 底下,而在 plugins 的快取目錄裡,
+# 路徑還帶一層版本或 marketplace 名稱——只探 skills\ 會找不到,然後整支降到
+# 階 1,而使用者明明兩個都裝了。
 $LIT = @(
   $env:LIT_API_PATH,
   (Join-Path $env:USERPROFILE '.claude\skills\lit-review\scripts\lit_api.py'),
+  (Join-Path $env:CLAUDE_PLUGIN_ROOT '..\lit-review\scripts\lit_api.py'),
+  (Get-ChildItem -Path (Join-Path $env:USERPROFILE '.claude\plugins') -Recurse -Filter 'lit_api.py' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName),
   '.\lit-review-skill\scripts\lit_api.py',
   '..\lit-review-skill\scripts\lit_api.py',
   '..\lit-review\scripts\lit_api.py'
@@ -26,9 +31,15 @@ if ($LIT -and $py) { & $py "$LIT" --help *> $null; $LIT_OK = ($LASTEXITCODE -eq 
 ```bash
 PY=$(command -v python3 || command -v python)
 LIT=""
+# 以 plugin 安裝時,lit-review 不在 skills/ 底下,而在 plugins 的快取目錄裡,
+# 路徑還帶一層版本或 marketplace 名稱。只探 skills/ 會找不到,然後整支降到階 1,
+# 而使用者明明兩個都裝了。最後那一行用 glob 掃 plugins/,涵蓋各種目錄佈局。
 for p in "$LIT_API_PATH" "$HOME/.claude/skills/lit-review/scripts/lit_api.py" \
+         "${CLAUDE_PLUGIN_ROOT}/../lit-review/scripts/lit_api.py" \
          "./lit-review-skill/scripts/lit_api.py" "../lit-review-skill/scripts/lit_api.py" \
-         "../lit-review/scripts/lit_api.py"; do
+         "../lit-review/scripts/lit_api.py" \
+         $(ls "$HOME"/.claude/plugins/*/lit-review*/scripts/lit_api.py \
+              "$HOME"/.claude/plugins/*/*/lit-review*/scripts/lit_api.py 2>/dev/null); do
   [ -n "$p" ] && [ -f "$p" ] && LIT="$p" && break
 done
 if [ -n "$LIT" ] && [ -n "$PY" ] && "$PY" "$LIT" --help >/dev/null 2>&1; then

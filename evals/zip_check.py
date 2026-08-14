@@ -19,7 +19,12 @@ Z = sys.argv[1] if len(sys.argv) > 1 else "research-gap-hunter.zip"
 PATTERNS = [
     (re.compile(r"s2k-[A-Za-z0-9]{10,}"), "Semantic Scholar 金鑰"),
     (re.compile(r"[\w.+-]+@(?:gmail|outlook|yahoo|hotmail|qq|163)\.com"), "個人 email"),
-    (re.compile(r"[Cc]:[\\/]{1,2}Users[\\/]{1,2}[A-Za-z]"), "本機絕對路徑"),
+    # 只認 C: 會漏掉 D:\Users\…(裝在第二顆碟很常見)與所有 POSIX 路徑;
+    # 而 /home/<名字>/ 與 /Users/<名字>/ 外洩的是同一個東西:使用者名稱。
+    # 門檻與 evals/doc_scan.py 的 ABS_PATH_PATTERNS 對齊——同一件事的兩支工具
+    # 不該給出相反的判斷。
+    (re.compile(r"[A-Za-z]:[\\/]{1,2}Users[\\/]{1,2}[A-Za-z0-9_.\-]+"), "本機絕對路徑"),
+    (re.compile(r"(?<![\w:])/(?:home|Users)/[A-Za-z0-9_.\-]+/"), "本機絕對路徑（POSIX）"),
     (re.compile(r"AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{30,}"), "其他疑似金鑰"),
 ]
 

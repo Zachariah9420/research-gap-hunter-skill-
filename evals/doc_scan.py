@@ -63,7 +63,14 @@ SKIP_DIRS = {".git", "__pycache__", ".venv", ".pytest_cache", ".idea", ".vscode"
 NUM_WORDS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
     "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
-    "twelve": 12, "thirteen": 13, "eighteen": 18, "twenty": 20,
+    # 英文這一列以前是 thirteen → eighteen → twenty:fourteen 到 nineteen
+    # 中間整段是缺的。缺口不會報錯,只會讓 to_int 回 None,而 claim_check 把
+    # 讀不出來的宣稱當成「沒有宣稱」放行——數字愈接近那段缺口,愈不會被守到。
+    "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+    "twenty": 20, "twenty-one": 21, "twenty-two": 22, "twenty-three": 23,
+    "twenty-four": 24, "twenty-five": 25, "twenty-six": 26, "twenty-seven": 27,
+    "twenty-eight": 28, "twenty-nine": 29, "thirty": 30,
     "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7,
     "八": 8, "九": 9, "十": 10,
     # 十一～二十:記分板的未關列數落在這個區間,寫成中文數字時若查不到,
@@ -428,7 +435,9 @@ claim_check(
 )
 
 # 輸出格式的區段數：以 SKILL.md 那個 fenced block 裡的 `## ` 行為準
-tmpl = re.search(r"```\n(# 研究缺口報告.*?)```", skill, re.S)
+# 圍欄後面可以有語言標記(```markdown)。以前這裡寫死 ```\n,加一個標記就找不到
+# 樣板了——而缺口這一側至少會 fail,地形那一側只記一筆 note 然後放行。
+tmpl = re.search(r"```[a-zA-Z0-9_-]*\n(# 研究缺口報告.*?)```", skill, re.S)
 if not tmpl:
     fail("SKILL.md 找不到輸出格式的樣板區塊（``` 內以「# 研究缺口報告」開頭），"
          "無法推導區段數與區段名稱")
@@ -448,9 +457,13 @@ else:
 # 地形報告的樣板：同樣要和它自己的基準樣本對得上。
 # 這一段的由來與缺口樣板那一段相同——SKILL.md 是散文，區段名稱會漂，
 # 而查核器與樣本是照著寫死的字串走的，漂了不會有任何測試變紅。
-land_tmpl = re.search(r"```\n(# 領域地形報告.*?)```", skill, re.S)
+land_tmpl = re.search(r"```[a-zA-Z0-9_-]*\n(# 領域地形報告.*?)```", skill, re.S)
 if not land_tmpl:
-    notes.append("SKILL.md 找不到領域地形報告的樣板區塊，區段名稱無從與 good_landscape.md 比對")
+    # 以前這裡只記一筆 note 然後放行,而缺口那一側同樣的情形是 fail。
+    # 兩個樣板承擔的職責一模一樣(讓查核器與樣本對齊),找不到就是這一節整段
+    # 沒有執行——那是缺陷,不是備註。備註不會讓任何人回來看。
+    fail("SKILL.md 找不到領域地形報告的樣板區塊（``` 內以「# 領域地形報告」開頭），"
+         "區段名稱無從與 good_landscape.md 比對")
 elif exists("evals/fixtures/good_landscape.md"):
     want = [s.split("（")[0].strip() for s in re.findall(r"^## (.+)$", land_tmpl.group(1), re.M)]
     got = [s.split("（")[0].strip()
@@ -651,9 +664,26 @@ else:
 
 print("■ 檢查 7：測試套件的覆蓋率")
 
+# 比集合，不比數量。數量相等有兩種：真的一一對應，或者「EXPECTED 把某個樣本
+# 列了兩次、又漏了另一個」——後者總數照樣相等，於是磁碟上有一個樣本從來沒被跑過，
+# 而覆蓋率宣稱看起來完全正常。這正是本節存在的理由，卻是它最容易漏掉的一種。
+_disk = {f for f in os.listdir(os.path.join(REPO, "evals", "fixtures")) if f.endswith(".md")}
+_listed = [name for name, _a, _b in st.EXPECTED]
+_expected_set = set(_listed)
+_only_disk = sorted(_disk - _expected_set)
+_only_expected = sorted(_expected_set - _disk)
+_dupes = sorted({n for n in _listed if _listed.count(n) > 1})
+if _only_disk:
+    fail("這些樣本存在於 evals/fixtures/，但 self_test.EXPECTED 沒有列到——"
+         "它們從來沒有被跑過：%s" % "、".join(_only_disk))
+if _only_expected:
+    fail("self_test.EXPECTED 指到不存在的樣本：%s" % "、".join(_only_expected))
+if _dupes:
+    fail("self_test.EXPECTED 重複列了同一個樣本：%s——"
+         "重複會讓總數看起來對得上，同時掩蓋掉另一個沒被列到的樣本" % "、".join(_dupes))
 if n_fixtures != n_expected:
-    fail("evals/fixtures/ 有 %d 個 .md，self_test.EXPECTED 只列了 %d 筆——"
-         "有樣本沒被跑到，或 EXPECTED 指到不存在的樣本" % (n_fixtures, n_expected))
+    fail("evals/fixtures/ 有 %d 個 .md，self_test.EXPECTED 列了 %d 筆"
+         % (n_fixtures, n_expected))
 
 # 每個樣本都要在 evals/README.md 的樣本表裡被點名。
 # 這條的由來：樣本表是手維護的，而 EXPECTED 是程式讀的，兩者曾經各自漂移兩次

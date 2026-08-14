@@ -128,7 +128,8 @@ def main():
             dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
             for f in fs:
                 p = os.path.join(root, f)
-                if f in SKIP_FILES or f.endswith(SKIP_EXT) or f.startswith(".env"):
+                if (f in SKIP_FILES or f.endswith(SKIP_EXT)
+                    or f.startswith(".env") or f.endswith(".env")):
                     continue
                 if os.path.abspath(p) not in tracked:
                     missing.append(os.path.relpath(p, REPO).replace("\\", "/"))
@@ -137,7 +138,8 @@ def main():
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for p in files_list:
             f = os.path.basename(p)
-            if f in SKIP_FILES or f.endswith(SKIP_EXT) or f.startswith(".env"):
+            if (f in SKIP_FILES or f.endswith(SKIP_EXT)
+                or f.startswith(".env") or f.endswith(".env")):
                 continue
             if not os.path.isfile(p) or os.path.abspath(p) == out:
                 continue

@@ -299,12 +299,24 @@ def main():
         if data["ok"] != (not want_checks):
             failures.append("%s：JSON 的 ok 欄位與預期不符" % name)
 
-        # 每一筆 finding 都要能定位：非空 check、正整數行號、非空訊息
+        # 每一筆 finding 都要能定位：非空 check、行號落在檔案裡、非空訊息。
+        #
+        # 「行號 ≥ 1 且是 int」這個條件**不可能失敗**——format_check 的 add() 用
+        # max(1, int(line or 1)) 夾過,任何壞掉的行號都會被夾成 1 再送出來。
+        # 一條夾完再檢查夾出來的值的斷言,證明的只是夾子還在。真正會壞、也真的
+        # 讓使用者跳不過去的是**指到檔案外面**:下游工具照著跳轉會落空,而報告
+        # 讀起來完全正常。行號上界是可以驗的,那就驗它。
+        n_lines = len(io.open(path, encoding="utf-8").read().splitlines())
         for f in data["findings"]:
             if not f.get("check"):
                 failures.append("%s：有 finding 缺 check id" % name)
-            if not isinstance(f.get("line"), int) or f["line"] < 1:
-                failures.append("%s：check %s 的行號無效（%r）" % (name, f.get("check"), f.get("line")))
+            line = f.get("line")
+            if not isinstance(line, int) or line < 1:
+                failures.append("%s：check %s 的行號無效（%r）" % (name, f.get("check"), line))
+            elif line > n_lines:
+                failures.append("%s：check %s 的行號 %d 超出檔案長度（共 %d 行）——"
+                                "指到檔案外面的錨點,下游跳轉會落空"
+                                % (name, f.get("check"), line, n_lines))
             if not f.get("message"):
                 failures.append("%s：check %s 缺訊息" % (name, f.get("check")))
 

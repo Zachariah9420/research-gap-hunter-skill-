@@ -986,6 +986,15 @@ def _validate_assumption(idx, e, seen):
     if not isinstance(anchor, str) or not anchor.strip():
         out.append(("ASSUM-01", loc, "%s 的 `anchor` 必須是非空字串（那條預設的一句話，不含〈〉），"
                                      "收到 %r" % (name, anchor)))
+    elif is_placeholder(anchor) or len(anchor.strip()) < 8:
+        # 錨點的作用是被 ANCHOR-01 拿去散文裡找。而 ANCHOR-01 問的是「在不在」,
+        # 一個佔位符或兩三個字的短字串幾乎在任何一段中文裡都找得到,於是那條
+        # 互鎖看起來過了、實際上什麼都沒鎖住:預設可以整句從散文裡消失。
+        # 錨點要短到能被容忍措辭漂移,但長到不會隨便命中——一句話的長度。
+        out.append(("ASSUM-01", loc,
+                    "%s 的 `anchor` 只有 %d 個字（%r）——錨點要是那條預設的**一句話**。"
+                    "太短的錨點在任何散文裡都找得到，ANCHOR-01 的互鎖會變成空轉"
+                    % (name, len(anchor.strip()), anchor.strip()[:20])))
 
     if "frame" not in e:
         out.append(("ASSUM-01", loc, "%s 少了 `frame` 欄位——它一律要在，沒有取樣框就寫 `null`，"
@@ -1410,9 +1419,13 @@ def parse_table(lines, start, end, aliases=None, strays=None, where=""):
         # 拿它當分隔的話，一句含 OR 的查詢詞會讓那一列多出一欄，而欄數檢查會
         # 對一列**寫對了的**紀錄開槍——查核器最不該做的事就是罰正確的寫法。
         cells = [c.strip() for c in re.split(r"(?<!\\)\|", raw.strip("|"))]
-        if re.fullmatch(r"[\s:\-—–|]+", raw):
-            continue
-        if all(re.fullmatch(r":?-{2,}:?", c.strip()) for c in cells if c.strip()):
+        is_sep = bool(re.fullmatch(r"[\s:\-—–|]+", raw)) or all(
+            re.fullmatch(r":?-{2,}:?", c.strip()) for c in cells if c.strip())
+        # 分隔列只有一個合法位置:表頭的下一列。以前只要「整列都是 -- 」就跳過,
+        # 不管它出現在哪裡——於是在表格尾巴補一列 `| -- | -- | -- |`,那一列連同
+        # 它本來要受的每一個檢查一起消失,而且不會被記成落單列(它已經被 consumed)。
+        # 一列佔位符是一列資料,而且是最該被抓的那一種資料。
+        if is_sep and (header is None or not rows):
             continue
         if header is None:
             header = cells
@@ -1916,15 +1929,22 @@ class BaseChecker(object):
             scan = self.rep.scan_lines[i] if i < len(self.rep.scan_lines) else ln
             if not scan.strip():
                 continue
-            if ASSERTIVE_GUARD.search(scan):
-                continue
             if self.lang_exempt(scan):
                 continue
             for pat, label in ASSERTIVE_PATTERNS:
                 m = re.search(pat, scan)
-                if m:
-                    self.add("LANG-01", i + 1, ln,
-                             "斷言式措辭「%s」：搜不到是搜尋結果，不存在是斷言，報告只能寫前者" % m.group(0))
+                if not m:
+                    continue
+                # 豁免要逐個比對來判,不能整行跳過。ASSERTIVE_GUARD 的用意是
+                # 「這一行在講規則、或在否定這個說法」(例如「不能寫『沒有人做過』」),
+                # 但以前它一命中就跳過**整行**——於是只要在一個已經含有「不代表」
+                # 之類字眼的欄位後面接一句「這個角度目前不存在相關研究。」,那句
+                # 斷言就跟著被赦免了。守衛只該罩住它旁邊那一段。
+                head = max(0, m.start() - 12)
+                if ASSERTIVE_GUARD.search(scan[head:m.end() + 12]):
+                    continue
+                self.add("LANG-01", i + 1, ln,
+                         "斷言式措辭「%s」：搜不到是搜尋結果，不存在是斷言，報告只能寫前者" % m.group(0))
 
 
 class Checker(BaseChecker):
@@ -2437,10 +2457,16 @@ class Checker(BaseChecker):
             if "gap_type" not in c["fields"]:
                 continue
             lineno, val = c["fields"]["gap_type"]
-            if not re.search(r"G3", strip_md(val), re.I):
-                continue
             raw = self.rep.lines[lineno - 1]
             refs = ["A" + g for g in AREF_RE.findall(strip_md(val))]
+            # 判斷這是不是 G3,以前只看欄位裡有沒有「G3」這兩個字。把生成器代號
+            # 拿掉、只寫「預設反轉（反轉 A3）」,整條規則就不啟動了——而那個候選
+            # 做的正是 G3 在做的事:拿一條預設去反轉。要求它指名預設的理由(反轉
+            # 印象級預設等於拿印象當證據)完全不依賴那兩個字有沒有寫出來。
+            # 所以:欄位指名了任何預設,就照 G3 檢查;寫了 G3 卻沒指名,照樣要報。
+            named_assumption = bool(refs)
+            if not re.search(r"G3", strip_md(val), re.I) and not named_assumption:
+                continue
             if not refs:
                 self.add("ASSUM-02", lineno, raw,
                          "G3 候選沒有指名它反轉的是哪一條預設（寫成「G3 預設反轉（反轉 A1）」）")
@@ -2642,7 +2668,17 @@ class Checker(BaseChecker):
         if state == "未驗證":
             return True
         if state.upper() == "UNSEARCHABLE":
-            return bool(TERMINOLOGY_RE.search(strip_md(row.get("missing", ""))))
+            missing = strip_md(row.get("missing", ""))
+            m = TERMINOLOGY_RE.search(missing)
+            if not m:
+                return False
+            # 命中「術語」不代表這一列在說「卡住的是術語」——「卡住的是這個月的
+            # 檢索工作量，不是術語問題」同樣命中,而它說的正好是相反的意思,也正好
+            # 是這個豁免**不該**給的那一種。豁免是一個宣稱,被否定的宣稱不是宣稱。
+            around = missing[max(0, m.start() - 10):m.end() + 10]
+            if re.search(r"不是|並非|而非|不在於|非關", around):
+                return False
+            return True
         return False
 
     def check_trace(self):
@@ -2698,8 +2734,11 @@ class Checker(BaseChecker):
                     continue
                 if not a.get("_clean"):
                     continue                  # 這一條本身不合 schema，ASSUM-01 已經報過
-                want = "第1步-推翻%s" % a["id"]
-                if any(want in re.sub(r"\s+", "", c) for c in cells):
+                # 用有界比對而不是子字串包含:`"第1步-推翻A1" in "第1步-推翻A19"`
+                # 是 True,於是 A1 可以拿一列標著 A19 的紀錄交差——而 A19 甚至
+                # 不必存在。前綴相同的編號互相頂替,對帳就等於沒有對帳。
+                want = re.compile(r"第1步-推翻%s(?![0-9])" % re.escape(a["id"]))
+                if any(want.search(re.sub(r"\s+", "", c)) for c in cells):
                     continue
                 self.add("TRACE-01", a["_line"], "\"id\": \"%s\"" % a["id"],
                          "預設 %s 的 `status` 是 `%s`（跑過或補過取樣框），"
@@ -2977,6 +3016,27 @@ class LandscapeChecker(BaseChecker):
                          % (gv, len(LAND_STATUS_VALUES), "／".join(LAND_STATUS_VALUES)))
 
     # ---- 牆與預設的雙向對帳（這一節是要交棒給獵捕的，對不起來就交不出去）----
+    def check_existence(self):
+        """三條地形規則都是「逐一走訪已經在那裡的東西」,所以整節不見時它們一起
+        失去對象:沒有家族就沒有〈付出什麼〉可查、沒有〈狀態〉可查、也沒有預設
+        可以拿去跟牆對帳,於是一份只剩表頭與一眼表的報告乾乾淨淨地 exit 0。
+        缺口那一側早就把這種形狀關掉了(記分板 B-5,「一次偷懶的執行長成的樣子」),
+        地形這一側一直沒關。存在性要自己查,不能靠迴圈裡的規則順便查出來。
+        """
+        if not self.rep.families:
+            line = next((s["line"] for s in self.rep.sections
+                         if s["kind"] == "families"), 1)
+            self.add("LCOST-01", line, "",
+                     "找不到〈二、各家族〉的任何一個家族區塊（`### F<n> <名稱>`）。"
+                     "沒有家族就沒有〈買到什麼〉〈付出什麼〉〈狀態〉可查，"
+                     "這份報告的每一條地形規則都失去對象")
+        if not self.rep.wall_rows and not self.rep.families:
+            line = next((s["line"] for s in self.rep.sections
+                         if s["kind"] == "walls"), 1)
+            self.add("LWALL-01", line, "",
+                     "找不到〈六、這個領域的牆〉的牆表。這一節是整個模式的產出——"
+                     "交給缺口獵捕的就是它，缺了它這份地形圖沒有下游")
+
     def check_walls(self):
         declared = []
         for fam in self.rep.families:
@@ -3023,11 +3083,17 @@ class LandscapeChecker(BaseChecker):
                          "牆 %s 的〈來源預設〉指到第二節沒有的預設：%s"
                          % (wall, "、".join(unknown)))
             for aid in ids:
-                if aid in used and used[aid] != wall:
+                # 以牆「這一列」而不是牆的**名稱**當身分。以前比的是 used[aid] != wall,
+                # 所以兩列的〈牆〉欄都空著時,兩者的 wall 字串相等,同一條預設掛在
+                # 兩道不同的牆底下卻被當成同一道——重複掛載這件事就不見了。
+                # 一列就是一道牆,即使作者沒有替它命名。
+                if aid in used and used[aid][0] != lineno:
+                    prev_line, prev_wall = used[aid]
                     self.add("LWALL-01", lineno, raw,
-                             "預設 %s 同時掛在牆 %s 與牆 %s 底下；每條預設只歸一道牆，"
-                             "否則〈家族數〉會把同一票算兩次" % (aid, used[aid], wall))
-                used.setdefault(aid, wall)
+                             "預設 %s 同時掛在牆 %s（第 %d 行）與牆 %s 底下；每條預設只歸一道牆，"
+                             "否則〈家族數〉會把同一票算兩次"
+                             % (aid, prev_wall or "（未命名）", prev_line, wall or "（未命名）"))
+                used.setdefault(aid, (lineno, wall))
             got = re.search(r"\d+", strip_md(row.get("famcount", "")))
             distinct = len(set(a.split("-")[0] for a in ids))
             if got is not None and int(got.group(0)) != distinct:
@@ -3049,6 +3115,7 @@ class LandscapeChecker(BaseChecker):
         self.check_header()
         self.check_tool_tier()
         self.check_mode_vocabulary()
+        self.check_existence()
         self.check_cost()
         self.check_status()
         self.check_walls()

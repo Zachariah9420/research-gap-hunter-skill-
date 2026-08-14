@@ -369,7 +369,10 @@ MUTATIONS = [
         "TRACE-01", "assumption_untraced.md",
         "不再檢查 framed／inherited_framed 的預設有沒有 `第1步-推翻A<n>` 對應列"
         "（＝互鎖的預設臂整條熄燈，而豁免那一側照樣是綠的，看起來人畜無害）",
-        "                if any(want in re.sub(r\"\\s+\", \"\", c) for c in cells):\n                    continue",
+        # 比對從「子字串包含」改成有界正規式(A1 不得被 A19 頂替)之後，原本的
+        # 突變片段就不存在了。片段不存在時本檔判 FAIL 而不是靜默跳過，這是對的：
+        # 一條瞄不到目標的突變，等於一條沒有人證明過的規則。
+        "                if any(want.search(re.sub(r\"\\s+\", \"\", c)) for c in cells):\n                    continue",
         "                if True:\n                    continue",
     ),
     (
@@ -381,8 +384,10 @@ MUTATIONS = [
     (
         "LANG-01", "assertive_language.md",
         "斷言措辭比對到了也不回報",
-        "                m = re.search(pat, scan)\n                if m:",
-        "                m = re.search(pat, scan)\n                if False:",
+        # 守衛從「整行跳過」改成「逐個比對、只罩住命中處前後」之後，回報那一段
+        # 的形狀變了。突變改削弱回報條件本身：命中了也不報。
+        "                m = re.search(pat, scan)\n                if not m:\n                    continue",
+        "                m = re.search(pat, scan)\n                if True:\n                    continue",
     ),
     (
         "TIER-01", "no_search_with_verdicts.md",

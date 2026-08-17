@@ -12,6 +12,11 @@ The layers connect in one place: the walls from layer 1 are exactly what layer 2
 
 Built by a grad student finishing a thesis, for his own use. The skill itself is prose — no runtime, no API keys, nothing to install. The Python in this repo is offline tooling only: the format checker, the repo and package scanners, a fixture generator and a packager. None of it runs during a landscape or a hunt.
 
+> **Before you install: the working language is Traditional Chinese.**
+> This README is English, but `SKILL.md` — the file the model actually follows — is mostly Chinese, and the reports come back in Chinese. The section headings are not a stylistic choice you can override: `evals/format_check.py` matches them verbatim (`"survivors", "二、存活候選"`), so a report with English headings fails its own checker.
+>
+> What is English regardless, and deliberately: **every literature query is issued in English**, because searching a field's canonical terminology in any other language is the single fastest way to conclude that something is unexplored when it is not. That rule is in `SKILL.md` and it does not bend for the report's language. So the search layer is English, the report around it is Chinese. Ask Claude to translate the output and it will; nothing in the repo does it for you.
+
 ## Two layers, two evidence standards
 
 | | `landscape` — 領域地形 | `hunt` — 缺口獵捕 |
